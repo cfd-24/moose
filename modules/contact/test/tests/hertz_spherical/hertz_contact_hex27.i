@@ -32,6 +32,7 @@
 
 [Mesh]#Comment
   file = hertz_contact_hex27.e
+  allow_renumbering = false
 [] # Mesh
 
 [Functions]
@@ -108,7 +109,6 @@
   [./all]
     add_variables = true
     strain = SMALL
-    use_displaced_mesh = false
   #  extra_vector_tags = 'ref'
   [../]
 []

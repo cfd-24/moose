@@ -9,8 +9,6 @@
     ymax = 40
     zmax = 0
   []
-  # We need this for recovering
-  parallel_type = distributed
 []
 
 [Variables]
@@ -77,6 +75,7 @@
   dt = 1
   num_steps = 20
   solve_type = NEWTON
+  nl_rel_tol = 1e-12
 []
 
 [Outputs]

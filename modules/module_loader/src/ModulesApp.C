@@ -22,6 +22,9 @@
 #ifdef FLUID_PROPERTIES_ENABLED
 #include "FluidPropertiesApp.h"
 #endif
+#ifdef FSI_ENABLED
+#include "FsiApp.h"
+#endif
 #ifdef FUNCTIONAL_EXPANSION_TOOLS_ENABLED
 #include "FunctionalExpansionToolsApp.h"
 #endif
@@ -46,14 +49,14 @@
 #ifdef POROUS_FLOW_ENABLED
 #include "PorousFlowApp.h"
 #endif
+#ifdef RAY_TRACING_ENABLED
+#include "RayTracingApp.h"
+#endif
 #ifdef RDG_ENABLED
 #include "RdgApp.h"
 #endif
 #ifdef RICHARDS_ENABLED
 #include "RichardsApp.h"
-#endif
-#ifdef SOLID_MECHANICS_ENABLED
-#include "SolidMechanicsApp.h"
 #endif
 #ifdef STOCHASTIC_TOOLS_ENABLED
 #include "StochasticToolsApp.h"
@@ -151,16 +154,16 @@ ModulesApp::registerObjects(Factory & factory)
   PorousFlowApp::registerObjects(factory);
 #endif
 
+#ifdef RAY_TRACING_ENABLED
+  RayTracingApp::registerObjects(factory);
+#endif
+
 #ifdef RDG_ENABLED
   RdgApp::registerObjects(factory);
 #endif
 
 #ifdef RICHARDS_ENABLED
   RichardsApp::registerObjects(factory);
-#endif
-
-#ifdef SOLID_MECHANICS_ENABLED
-  SolidMechanicsApp::registerObjects(factory);
 #endif
 
 #ifdef STOCHASTIC_TOOLS_ENABLED
@@ -226,16 +229,16 @@ ModulesApp::associateSyntax(Syntax & syntax, ActionFactory & action_factory)
   PorousFlowApp::associateSyntax(syntax, action_factory);
 #endif
 
+#ifdef RAY_TRACING_ENABLED
+  RayTracingApp::associateSyntax(syntax, action_factory);
+#endif
+
 #ifdef RDG_ENABLED
   RdgApp::associateSyntax(syntax, action_factory);
 #endif
 
 #ifdef RICHARDS_ENABLED
   RichardsApp::associateSyntax(syntax, action_factory);
-#endif
-
-#ifdef SOLID_MECHANICS_ENABLED
-  SolidMechanicsApp::associateSyntax(syntax, action_factory);
 #endif
 
 #ifdef STOCHASTIC_TOOLS_ENABLED
@@ -297,16 +300,16 @@ ModulesApp::registerExecFlags(Factory & factory)
   PorousFlowApp::registerExecFlags(factory);
 #endif
 
+#ifdef RAY_TRACING_ENABLED
+  RayTracingApp::registerExecFlags(factory);
+#endif
+
 #ifdef RDG_ENABLED
   RdgApp::registerExecFlags(factory);
 #endif
 
 #ifdef RICHARDS_ENABLED
   RichardsApp::registerExecFlags(factory);
-#endif
-
-#ifdef SOLID_MECHANICS_ENABLED
-  SolidMechanicsApp::registerExecFlags(factory);
 #endif
 
 #ifdef STOCHASTIC_TOOLS_ENABLED
@@ -339,6 +342,10 @@ ModulesApp::registerAll(Factory & f, ActionFactory & af, Syntax & s)
   FluidPropertiesApp::registerAll(f, af, s);
 #endif
 
+#ifdef FSI_ENABLED
+  FsiApp::registerAll(f, af, s);
+#endif
+
 #ifdef HEAT_CONDUCTION_ENABLED
   HeatConductionApp::registerAll(f, af, s);
 #endif
@@ -367,16 +374,16 @@ ModulesApp::registerAll(Factory & f, ActionFactory & af, Syntax & s)
   PorousFlowApp::registerAll(f, af, s);
 #endif
 
+#ifdef RAY_TRACING_ENABLED
+  RayTracingApp::registerAll(f, af, s);
+#endif
+
 #ifdef RDG_ENABLED
   RdgApp::registerAll(f, af, s);
 #endif
 
 #ifdef RICHARDS_ENABLED
   RichardsApp::registerAll(f, af, s);
-#endif
-
-#ifdef SOLID_MECHANICS_ENABLED
-  SolidMechanicsApp::registerAll(f, af, s);
 #endif
 
 #ifdef STOCHASTIC_TOOLS_ENABLED

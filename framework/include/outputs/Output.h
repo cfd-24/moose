@@ -14,6 +14,9 @@
 #include "Restartable.h"
 #include "MeshChangedInterface.h"
 #include "SetupInterface.h"
+#include "PostprocessorInterface.h"
+#include "VectorPostprocessorInterface.h"
+#include "ReporterInterface.h"
 #include "AdvancedOutputUtils.h"
 #include "PerfGraphInterface.h"
 
@@ -42,6 +45,9 @@ class Output : public MooseObject,
                public Restartable,
                public MeshChangedInterface,
                public SetupInterface,
+               public PostprocessorInterface,
+               public VectorPostprocessorInterface,
+               public ReporterInterface,
                public PerfGraphInterface
 {
 public:
@@ -159,12 +165,6 @@ protected:
    */
   virtual bool onInterval();
 
-  /**
-   * Initialization method.
-   * This populates the various data structures needed to control the output
-   */
-  virtual void initialSetup();
-
   /// Pointer the the FEProblemBase object for output object (use this)
   FEProblemBase * _problem_ptr;
 
@@ -228,9 +228,6 @@ protected:
   /// Flag for only executing at sync times
   bool _sync_only;
 
-  /// True if init() has been called
-  bool _initialized;
-
   /// Flag for disabling output
   bool _allow_output;
 
@@ -248,4 +245,3 @@ protected:
 
   friend class OutputWarehouse;
 };
-

@@ -64,7 +64,7 @@ to develop as each piece of end-user (developer) code that goes into the system 
 interface for the underlying systems that those object plug into. These descriptions are provided
 through developer-supplied "markdown" files that are required for all new objects that are developed
 as part of the framework, modules and derivative applications. More information about the design
-documentation can be found in [MooseDocs](MooseDocs/generate.md optional=True).
+documentation can be found in [framework/documenting.md].
 !template-end!
 
 !template! item key=system-scope
@@ -95,7 +95,7 @@ software is open-source and many features and even bugs can be offloaded to deve
 levels of knowledge and direction from the main design team. The primary list of software dependencies
 is listed below. This list is not meant to be exhaustive. Individual operating systems may require
 specific packages to be installed prior to using MOOSE, which can be found on the
-[Getting Started](getting_started/index.md optional=True) pages.
+[Install MOOSE](getting_started/installation/index.md optional=True) pages.
 
 | Software Dependency | Description |
 | :- | :- |

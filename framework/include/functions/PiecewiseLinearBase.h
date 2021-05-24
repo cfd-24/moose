@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "PiecewiseBase.h"
+#include "PiecewiseTabularBase.h"
 
 // Forward declarations
 class PiecewiseLinearBase;
@@ -21,7 +21,7 @@ InputParameters validParams<PiecewiseLinearBase>();
  * Base class for functions which provides a piecewise continuous linear
  * interpolation of an (x,y) point data set.
  */
-class PiecewiseLinearBase : public PiecewiseBase
+class PiecewiseLinearBase : public PiecewiseTabularBase
 {
 public:
   static InputParameters validParams();
@@ -29,8 +29,9 @@ public:
   PiecewiseLinearBase(const InputParameters & parameters);
 
   virtual void initialSetup() override;
-  virtual Real value(Real t, const Point & pt) const override;
-  virtual Real timeDerivative(Real t, const Point & pt) const override;
+  virtual Real value(Real t, const Point & p) const override;
+  virtual Real timeDerivative(Real t, const Point &) const override;
+  virtual RealGradient gradient(Real, const Point & p) const override;
   virtual Real integral() const override;
   virtual Real average() const override;
   virtual void setData(const std::vector<Real> & x, const std::vector<Real> & y) override;

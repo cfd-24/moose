@@ -43,14 +43,14 @@ MooseObject::validParams()
   params.addPrivateParam<std::string>("_type");        // The name of the class being built
   params.addPrivateParam<std::string>("_object_name"); // The name passed to Factory::create
   params.addPrivateParam<std::string>("_unique_name"); // The unique name generated in the warehouse
-  params.addPrivateParam<FEProblem *>("_fe_problem");
-  params.addPrivateParam<FEProblemBase *>("_fe_problem_base");
-  params.addPrivateParam<EigenProblem *>("_eigen_problem");
-  params.addPrivateParam<SubProblem *>("_subproblem");
-  params.addPrivateParam<SystemBase *>("_sys");
-  params.addPrivateParam<SystemBase *>("_nl_sys");
-  params.addPrivateParam<AuxiliarySystem *>("_aux_sys");
-  params.addPrivateParam<Transient *>("_executioner");
+  params.addPrivateParam<FEProblem *>("_fe_problem", nullptr);
+  params.addPrivateParam<FEProblemBase *>("_fe_problem_base", nullptr);
+  params.addPrivateParam<EigenProblem *>("_eigen_problem", nullptr);
+  params.addPrivateParam<SubProblem *>("_subproblem", nullptr);
+  params.addPrivateParam<SystemBase *>("_sys", nullptr);
+  params.addPrivateParam<SystemBase *>("_nl_sys", nullptr);
+  params.addPrivateParam<AuxiliarySystem *>("_aux_sys", nullptr);
+  params.addPrivateParam<Transient *>("_executioner", nullptr);
   params.addPrivateParam<THREAD_ID>("_tid");
   return params;
 }
@@ -74,4 +74,19 @@ callMooseErrorRaw(std::string & msg, MooseApp * app)
   if (!app->isUltimateMaster())
     prefix = app->name();
   moose::internal::mooseErrorRaw(msg, prefix);
+}
+
+std::string
+MooseObject::errorPrefix(const std::string & error_type) const
+{
+  std::stringstream oss;
+  oss << "The following " << error_type << " occurred in the object \"" << name()
+      << "\", of type \"" << type() << "\".\n\n";
+  return oss.str();
+}
+
+std::string
+MooseObject::typeAndName() const
+{
+  return type() + std::string(" \"") + name() + std::string("\"");
 }

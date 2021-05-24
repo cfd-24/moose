@@ -35,6 +35,7 @@ ExplicitSSPRungeKutta::ExplicitSSPRungeKutta(const InputParameters & parameters)
 
     _order(getParam<MooseEnum>("order")),
 
+    _stage(0),
     _solution_intermediate_stage(_nl.addVector("solution_intermediate_stage", false, GHOSTED)),
     _tmp_solution(_nl.addVector("tmp_solution", false, GHOSTED)),
     _tmp_mass_solution_product(_nl.addVector("tmp_mass_solution_product", false, GHOSTED))
@@ -128,7 +129,7 @@ ExplicitSSPRungeKutta::solveStage()
 {
   // Compute the mass matrix
   _nl.computeTimeDerivatives();
-  auto & mass_matrix = *_nonlinear_implicit_system->matrix;
+  auto & mass_matrix = _nonlinear_implicit_system->get_system_matrix();
   _fe_problem.computeJacobianTag(
       *_nonlinear_implicit_system->current_local_solution, mass_matrix, _Ke_time_tag);
 
@@ -175,7 +176,7 @@ ExplicitSSPRungeKutta::postResidual(NumericVector<Number> & residual)
   _tmp_solution.close();
 
   // Perform mass matrix product with the above vector
-  auto & mass_matrix = *_nonlinear_implicit_system->matrix;
+  auto & mass_matrix = _nonlinear_implicit_system->get_system_matrix();
   mass_matrix.vector_mult(_tmp_mass_solution_product, _tmp_solution);
 
   // Finish computing residual vector (before modification by nodal BCs)

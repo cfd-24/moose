@@ -99,6 +99,12 @@ public:
   virtual Real getTime() { return _time; };
 
   /**
+   * Get the current target time
+   * @return target time
+   */
+  virtual Real getTargetTime() { return _target_time; }
+
+  /**
    * Set the current time.
    */
   virtual void setTime(Real t) { _time = t; };
@@ -192,6 +198,12 @@ public:
    */
   virtual Real relativeSolutionDifferenceNorm();
 
+  /**
+   * Set the number of time steps
+   * @param num_steps number of time steps
+   */
+  virtual void forceNumSteps(const unsigned int num_steps) { _num_steps = num_steps; }
+
 protected:
   /// Here for backward compatibility
   FEProblemBase & _problem;
@@ -237,6 +249,10 @@ protected:
   std::set<Real> & _sync_times;
 
   bool _abort;
+  /// This parameter controls how the system will deal with _dt <= _dtmin
+  /// If true, the time stepper is expected to throw an error
+  /// If false, the executioner will continue through EXEC_FINAL
+  const bool _error_on_dtmin;
 
   ///if to use time interval output
   bool & _time_interval;

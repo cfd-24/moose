@@ -21,9 +21,8 @@ A helpful tip.
 !alert construction
 Under construction.
 
-!alert construction icon=False
+!alert construction
 Under construction.
-
 
 !alert! error
 An alert with some code.
@@ -36,3 +35,12 @@ int x;
 
 !alert tip title=[Google](https://google.com)
 Title with link.
+
+!alert note title=[!ac](INL)
+Title with the [!ac](INL) acronym.
+
+!alert note icon=False
+A note without an icon
+
+!alert note icon-name=local_gas_station
+A note with a custom icon

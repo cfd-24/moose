@@ -37,7 +37,11 @@ def _runner(input_file, num_refinements, *args, **kwargs):
     """
 
     x_pp = kwargs.get('x_pp', 'h')
-    y_pp = kwargs.get('y_pp', 'error')
+    y_pp = kwargs.get('y_pp', ['error'])
+
+    if not isinstance(y_pp, list):
+        y_pp = [y_pp]
+
     executable = kwargs.get('executable', None)
     csv = kwargs.get('csv', None)
     console = kwargs.get('console', True)
@@ -71,8 +75,12 @@ def _runner(input_file, num_refinements, *args, **kwargs):
 
     # Run input file and build up output
     x = []
-    y = []
-    for step in range(0, num_refinements):
+    y = [ [] for _ in range(len(y_pp)) ]
+
+    if not isinstance(num_refinements, list):
+        num_refinements = list(range(num_refinements))
+
+    for step in num_refinements:
         a = copy.copy(cli_args)
         if rtype == SPATIAL:
             a.append('Mesh/uniform_refine={}'.format(step))
@@ -87,7 +95,7 @@ def _runner(input_file, num_refinements, *args, **kwargs):
                 fcsv = '{}.csv'.format(fbase)
 
         print('Running:', executable, ' '.join(a))
-        out = mooseutils.run_executable(executable, a, mpi=mpi, suppress_output=not console)
+        out = mooseutils.run_executable(executable, *a, mpi=mpi, suppress_output=not console)
 
         # Check that CSV file exists
         if not os.path.isfile(fcsv):
@@ -98,15 +106,23 @@ def _runner(input_file, num_refinements, *args, **kwargs):
 
         if rtype == SPATIAL:
             x.append(current[x_pp].iloc[-1])
-            y.append(current[y_pp].iloc[-1])
+            for index,pp in enumerate(y_pp):
+                y[index].append(current[pp].iloc[-1])
         elif rtype == TEMPORAL:
             x.append(dt)
-            y.append(current[y_pp].iloc[-1])
+            for index,pp in enumerate(y_pp):
+                y[index].append(current[pp].iloc[-1])
 
     if rtype == SPATIAL:
         x_pp == 'dt'
 
-    return pandas.DataFrame({x_pp:x, y_pp:y}, columns=[x_pp, y_pp])
+    df_dict = {x_pp:x}
+    df_columns = [x_pp]
+    for i in range(len(y_pp)):
+        df_dict.update({y_pp[i]:y[i]})
+        df_columns.append(y_pp[i])
+
+    return pandas.DataFrame(df_dict, columns=df_columns)
 
 def run_spatial(*args, **kwargs):
     """Runs input file for a spatial MMS problem (see _runner.py for inputs)."""

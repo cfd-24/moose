@@ -20,7 +20,6 @@
 #include "Control.h"
 #include "TimePeriod.h"
 #include "MooseMesh.h"
-#include "AllLocalDofIndicesThread.h"
 #include "TimeIntegrator.h"
 #include "Console.h"
 
@@ -103,6 +102,10 @@ Transient::validParams()
   params.addParam<std::vector<Real>>("time_period_ends", "The end times of time periods");
   params.addParam<bool>(
       "abort_on_solve_fail", false, "abort if solve not converged rather than cut timestep");
+  params.addParam<bool>(
+      "error_on_dtmin",
+      true,
+      "Throw error when timestep is less than dtmin instead of just aborting solve.");
   params.addParam<MooseEnum>("scheme", schemes, "Time integration scheme used.");
   params.addParam<Real>("timestep_tolerance",
                         2.0e-14,
@@ -152,10 +155,11 @@ Transient::Transient(const InputParameters & parameters)
     _steady_state_start_time(getParam<Real>("steady_state_start_time")),
     _sync_times(_app.getOutputWarehouse().getSyncTimes()),
     _abort(getParam<bool>("abort_on_solve_fail")),
+    _error_on_dtmin(getParam<bool>("error_on_dtmin")),
     _time_interval(declareRecoverableData<bool>("time_interval", false)),
     _start_time(getParam<Real>("start_time")),
     _timestep_tolerance(getParam<Real>("timestep_tolerance")),
-    _target_time(declareRecoverableData<Real>("target_time", -1)),
+    _target_time(declareRecoverableData<Real>("target_time", -std::numeric_limits<Real>::max())),
     _use_multiapp_dt(getParam<bool>("use_multiapp_dt")),
     _solution_change_norm(declareRecoverableData<Real>("solution_change_norm", 0.0)),
     _sln_diff(_nl.addVector("sln_diff", false, PARALLEL)),
@@ -181,7 +185,7 @@ Transient::Transient(const InputParameters & parameters)
   // is (in case anyone else is interested.
   if (_app.hasStartTime())
     _start_time = _app.getStartTime();
-  else if (parameters.isParamSetByUser("start_time") && !_app.isRecovering())
+  else if (parameters.isParamSetByUser("start_time"))
     _app.setStartTime(_start_time);
 
   _time = _time_old = _start_time;
@@ -530,8 +534,9 @@ Transient::computeConstrainedDT()
          << std::left << dt_cur << std::endl;
   }
 
-  // Adjust to a target time if set
-  if (_target_time > 0 && _time + dt_cur + _timestep_tolerance >= _target_time)
+  // If a target time is set and the current dt would exceed it, limit dt to match the target
+  if (_target_time > -std::numeric_limits<Real>::max() + _timestep_tolerance &&
+      _time + dt_cur + _timestep_tolerance >= _target_time)
   {
     dt_cur = _target_time - _time;
     _at_sync_point = true;
@@ -610,6 +615,11 @@ Transient::keepGoing()
   else if (_abort)
   {
     _console << "Aborting as solve did not converge and input selected to abort" << std::endl;
+    keep_going = false;
+  }
+  else if (!_error_on_dtmin && _dt <= _dtmin)
+  {
+    _console << "Aborting as timestep already at or below dtmin" << std::endl;
     keep_going = false;
   }
 

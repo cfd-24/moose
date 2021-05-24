@@ -10,7 +10,7 @@ even advanced mechanics models:
 - Tensor implementation matches mathematical theory
 - Straight-forward procedure for adding new physics
 
-The tensor mechanics system can be used to simulation both linear and finite strain mechanics, including
+The tensor mechanics system can be used to simulate both linear and finite strain mechanics, including
 Elasticity and Cosserat elasticity, Plasticity and micromechanics plasticity, Creep, and
 Damage due to cracking and property degradation
 
@@ -93,13 +93,14 @@ introductory theory pages on the various models:
 - [Viscoplasticity](/ADViscoplasticityStressUpdate.md)
 - [Cohesive Zone Modeling](CohesiveZoneMaster/index.md)
 - [Shell elements](tensor_mechanics/ShellElements.md)
+- [Reduced Order Models](/LAROMANCE.md)
 
 !col-end!
 !row-end!
 
-The tensor mechanics module is being developed by users at national laboratories
-and universities around the world. Contact the developers through the
-[moose-users email list](help/contact_us.md optional=True).
+The TensorMechanics module is being developed by users at national laboratories
+and universities around the world. Learn how to get in touch with the developers
+on the [help/contact_us.md optional=True] page.
 
 ## Developing New Tensor Mechanics Code
 
@@ -107,9 +108,9 @@ Consider becoming a developer yourself.
 The tensor mechanics module uses code syntax based on tensor forms. This approach
 allows the constitutive tensor equations to be implemented, clearly and concisely,
 in the same format as written in mathematical notation.
-Follow the MOOSE standards for [contributing code and documentation](MooseDocs/generate.md optional=True).
+Follow the MOOSE standards for [contributing](framework/contributing.md).
 
 ## Software Quality
 
 The Tensor Mechanics module follows strict software quality guidelines, refer to
-[tensor_mechanics/sqa/index.md] for more information.
+[Tensor Mechanics SQA](tensor_mechanics/sqa/index.md) for more information.

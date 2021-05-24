@@ -1,6 +1,6 @@
 # AnnularMeshGenerator
 
-!syntax description /MeshGenerators/AnnularMeshGenerator
+!syntax description /Mesh/AnnularMeshGenerator
 
 ## Overview
 
@@ -18,7 +18,7 @@ The inner radius and the outer radius must be specified. If the inner radius is 
 
 The minimum and maximum angle may also be specified. These default to zero and 360, respectively. If other values are chosen, a sector of an annulus, or a sector of a disc will be created. Both angles are measured anti-clockwise from the xx axis.
 
-The number of elements in the radial direction and the angular direction may be specified. In addition, a growth factor on the element size in the radial direction may be chosen. The element-size (in the radial direction) is multiplied by this factor for each concentric ring of elements, moving from the inner to the outer radius.
+The number of elements in the radial direction and the angular direction may be specified. In addition, a growth factor on the element size in the radial direction may be chosen. The element-size (in the radial direction) is multiplied by this factor for each concentric ring of elements, moving from the inner to the outer radius. If the growth factor is positive, element thicknesses increase in the radial direction, while if the growth factor is negative, element thicknesses decrease in the radial direction.
 
 Sidesets are also created:
 
@@ -27,8 +27,8 @@ Sidesets are also created:
 - Sideset 2 is called "dmin" and is the set of sides at the minimum angle, which is created only in the case of a sector of an annulus (or disc)
 - Sideset 3 is called "dmax" and is the set of sides at the maximum angle, which is created only in the case of a sector of an annulus (or disc)
 
-!syntax parameters /MeshGenerators/AnnularMeshGenerator
+!syntax parameters /Mesh/AnnularMeshGenerator
 
-!syntax inputs /MeshGenerators/AnnularMeshGenerator
+!syntax inputs /Mesh/AnnularMeshGenerator
 
-!syntax children /MeshGenerators/AnnularMeshGenerator
+!syntax children /Mesh/AnnularMeshGenerator

@@ -17,6 +17,7 @@ InputParameters
 VariableTimeIntegrationAux::validParams()
 {
   InputParameters params = AuxKernel::validParams();
+  params.addClassDescription("Integrates a field variable in time.");
   params.addRequiredCoupledVar("variable_to_integrate", "The variable to be integrated");
   params.addParam<Real>("coefficient", 1.0, "A simple coefficient");
   params.addParam<unsigned int>(
@@ -27,7 +28,9 @@ VariableTimeIntegrationAux::validParams()
 VariableTimeIntegrationAux::VariableTimeIntegrationAux(const InputParameters & parameters)
   : AuxKernel(parameters),
     _coef(getParam<Real>("coefficient")),
-    _order(getParam<unsigned int>("order"))
+    _order(getParam<unsigned int>("order")),
+    _u_old(_order != 3 ? uOld() : genericZeroValue<false>()),
+    _u_older(_order == 3 ? uOlder() : genericZeroValue<false>())
 {
   switch (_order)
   {

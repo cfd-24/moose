@@ -26,7 +26,7 @@ ExtraNodesetGenerator::validParams()
 
   params.addRequiredParam<MeshGeneratorName>("input", "The mesh we want to modify");
   params.addRequiredParam<std::vector<BoundaryName>>("new_boundary",
-                                                     "The name of the boundary to create");
+                                                     "The names of the boundaries to create");
 
   params.addParam<std::vector<unsigned int>>("nodes",
                                              "The nodes you want to be in the nodeset "
@@ -77,8 +77,14 @@ ExtraNodesetGenerator::generate()
 
   // add nodes with their ids
   for (const auto & node_id : nodes)
+  {
+    // Our mesh may be distributed and this node may not exist on this process
+    if (!mesh->query_node_ptr(node_id))
+      continue;
+
     for (const auto & boundary_id : boundary_ids)
       boundary_info.add_node(node_id, boundary_id);
+  }
 
   // add nodes with their coordinates
   const auto dim = mesh->mesh_dimension();

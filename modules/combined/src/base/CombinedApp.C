@@ -16,6 +16,7 @@
 #include "ChemicalReactionsApp.h"
 #include "ContactApp.h"
 #include "FluidPropertiesApp.h"
+#include "FsiApp.h"
 #include "FunctionalExpansionToolsApp.h"
 #include "GeochemistryApp.h"
 #include "HeatConductionApp.h"
@@ -24,9 +25,9 @@
 #include "NavierStokesApp.h"
 #include "PhaseFieldApp.h"
 #include "PorousFlowApp.h"
+#include "RayTracingApp.h"
 #include "RdgApp.h"
 #include "RichardsApp.h"
-#include "SolidMechanicsApp.h"
 #include "StochasticToolsApp.h"
 #include "PeridynamicsApp.h"
 #include "TensorMechanicsApp.h"
@@ -39,10 +40,6 @@ CombinedApp::validParams()
   InputParameters params = MooseApp::validParams();
 
   params.set<bool>("automatic_automatic_scaling") = false;
-
-  // Do not use legacy DirichletBC, that is, set DirichletBC default for preset = true
-  params.set<bool>("use_legacy_dirichlet_bc") = false;
-
   params.set<bool>("use_legacy_material_output") = false;
 
   return params;
@@ -72,6 +69,7 @@ CombinedApp::registerAll(Factory & f, ActionFactory & af, Syntax & s)
   ChemicalReactionsApp::registerAll(f, af, s);
   ContactApp::registerAll(f, af, s);
   FluidPropertiesApp::registerAll(f, af, s);
+  FsiApp::registerAll(f, af, s);
   FunctionalExpansionToolsApp::registerAll(f, af, s);
   GeochemistryApp::registerAll(f, af, s);
   HeatConductionApp::registerAll(f, af, s);
@@ -80,9 +78,9 @@ CombinedApp::registerAll(Factory & f, ActionFactory & af, Syntax & s)
   NavierStokesApp::registerAll(f, af, s);
   PhaseFieldApp::registerAll(f, af, s);
   PorousFlowApp::registerAll(f, af, s);
+  RayTracingApp::registerAll(f, af, s);
   RdgApp::registerAll(f, af, s);
   RichardsApp::registerAll(f, af, s);
-  SolidMechanicsApp::registerAll(f, af, s);
   StochasticToolsApp::registerAll(f, af, s);
   PeridynamicsApp::registerAll(f, af, s);
   TensorMechanicsApp::registerAll(f, af, s);
@@ -104,9 +102,9 @@ CombinedApp::registerObjects(Factory & factory)
   NavierStokesApp::registerObjects(factory);
   PhaseFieldApp::registerObjects(factory);
   PorousFlowApp::registerObjects(factory);
+  RayTracingApp::registerObjects(factory);
   RdgApp::registerObjects(factory);
   RichardsApp::registerObjects(factory);
-  SolidMechanicsApp::registerObjects(factory);
   StochasticToolsApp::registerObjects(factory);
   PeridynamicsApp::registerObjects(factory);
   TensorMechanicsApp::registerObjects(factory);
@@ -127,9 +125,9 @@ CombinedApp::associateSyntax(Syntax & syntax, ActionFactory & action_factory)
   NavierStokesApp::associateSyntax(syntax, action_factory);
   PhaseFieldApp::associateSyntax(syntax, action_factory);
   PorousFlowApp::associateSyntax(syntax, action_factory);
+  RayTracingApp::associateSyntax(syntax, action_factory);
   RdgApp::associateSyntax(syntax, action_factory);
   RichardsApp::associateSyntax(syntax, action_factory);
-  SolidMechanicsApp::associateSyntax(syntax, action_factory);
   StochasticToolsApp::associateSyntax(syntax, action_factory);
   PeridynamicsApp::associateSyntax(syntax, action_factory);
   TensorMechanicsApp::associateSyntax(syntax, action_factory);
@@ -147,8 +145,8 @@ CombinedApp::registerExecFlags(Factory & factory)
   MiscApp::registerExecFlags(factory);
   NavierStokesApp::registerExecFlags(factory);
   PhaseFieldApp::registerExecFlags(factory);
+  RayTracingApp::registerExecFlags(factory);
   RichardsApp::registerExecFlags(factory);
-  SolidMechanicsApp::registerExecFlags(factory);
   StochasticToolsApp::registerExecFlags(factory);
   PeridynamicsApp::registerExecFlags(factory);
   TensorMechanicsApp::registerExecFlags(factory);

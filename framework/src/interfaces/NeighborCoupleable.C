@@ -26,11 +26,20 @@ NeighborCoupleable::NeighborCoupleable(const MooseObject * moose_object,
 const VariableValue &
 NeighborCoupleable::coupledNeighborValue(const std::string & var_name, unsigned int comp) const
 {
-  const auto * var = getVar(var_name, comp);
+  const auto * var = getVarHelper<MooseVariableField<Real>>(var_name, comp);
   if (_neighbor_nodal)
     return (_c_is_implicit) ? var->dofValuesNeighbor() : var->dofValuesOldNeighbor();
   else
     return (_c_is_implicit) ? var->slnNeighbor() : var->slnOldNeighbor();
+}
+
+std::vector<const VariableValue *>
+NeighborCoupleable::coupledNeighborValues(const std::string & var_name) const
+{
+  auto func = [this, &var_name](unsigned int comp) {
+    return &coupledNeighborValue(var_name, comp);
+  };
+  return coupledVectorHelper<const VariableValue *>(var_name, func);
 }
 
 const ADVariableValue &
@@ -49,6 +58,15 @@ NeighborCoupleable::adCoupledNeighborValue(const std::string & var_name, unsigne
                "not appropriate. Please use coupledNeighborValue instead");
 
   return var->adSlnNeighbor();
+}
+
+std::vector<const ADVariableValue *>
+NeighborCoupleable::adCoupledNeighborValues(const std::string & var_name) const
+{
+  auto func = [this, &var_name](unsigned int comp) {
+    return &adCoupledNeighborValue(var_name, comp);
+  };
+  return coupledVectorHelper<const ADVariableValue *>(var_name, func);
 }
 
 const ADVectorVariableValue &
@@ -132,7 +150,7 @@ NeighborCoupleable::coupledNeighborGradient(const std::string & var_name, unsign
   if (_neighbor_nodal)
     mooseError("Nodal variables do not have gradients");
 
-  const auto * var = getVar(var_name, comp);
+  const auto * var = getVarHelper<MooseVariableField<Real>>(var_name, comp);
   return (_c_is_implicit) ? var->gradSlnNeighbor() : var->gradSlnOldNeighbor();
 }
 

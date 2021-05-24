@@ -25,6 +25,8 @@
 #include "ShapeUserObject.h"
 #include "ShapeSideUserObject.h"
 #include "ShapeElementUserObject.h"
+#include "Reporter.h"
+#include "SystemBase.h"
 
 std::ostream &
 operator<<(std::ostream & os, Interfaces & iface)
@@ -54,6 +56,8 @@ operator<<(std::ostream & os, Interfaces & iface)
     os << "|VectorPostprocessor";
   if (static_cast<bool>(iface & Interfaces::InterfaceUserObject))
     os << "|InterfaceUserObject";
+  if (static_cast<bool>(iface & Interfaces::Reporter))
+    os << "|Reporter";
   os << ")";
   return os;
 }
@@ -178,6 +182,9 @@ AttribSubdomains::isMatch(const Attribute & other) const
   auto cond = a->_vals[0];
   if (cond == Moose::ANY_BLOCK_ID)
     return true;
+  else if (cond == Moose::INVALID_BLOCK_ID)
+    return false;
+
   for (auto id : _vals)
   {
     if (id == cond || id == Moose::ANY_BLOCK_ID)
@@ -259,6 +266,28 @@ AttribThread::isMatch(const Attribute & other) const
 }
 bool
 AttribThread::isEqual(const Attribute & other) const
+{
+  return isMatch(other);
+}
+
+void
+AttribSysNum::initFrom(const MooseObject * obj)
+{
+  auto * sys = obj->getParam<SystemBase *>("_sys");
+
+  if (sys)
+    _val = sys->number();
+}
+
+bool
+AttribSysNum::isMatch(const Attribute & other) const
+{
+  auto a = dynamic_cast<const AttribSysNum *>(&other);
+  return a && (a->_val == _val);
+}
+
+bool
+AttribSysNum::isEqual(const Attribute & other) const
 {
   return isMatch(other);
 }
@@ -390,6 +419,9 @@ AttribInterfaces::initFrom(const MooseObject * obj)
   _val |= (unsigned int)Interfaces::ShapeSideUserObject       * (dynamic_cast<const ShapeSideUserObject *>(obj) != nullptr);
   _val |= (unsigned int)Interfaces::Postprocessor             * (dynamic_cast<const Postprocessor *>(obj) != nullptr);
   _val |= (unsigned int)Interfaces::VectorPostprocessor       * (dynamic_cast<const VectorPostprocessor *>(obj) != nullptr);
+  _val |= (unsigned int)Interfaces::BlockRestrictable         * (dynamic_cast<const BlockRestrictable *>(obj) != nullptr);
+  _val |= (unsigned int)Interfaces::BoundaryRestrictable      * (dynamic_cast<const BoundaryRestrictable *>(obj) != nullptr);
+  _val |= (unsigned int)Interfaces::Reporter                  * (dynamic_cast<const Reporter *>(obj) != nullptr);
   // clang-format on
 }
 

@@ -30,7 +30,9 @@ ActionWarehouse::ActionWarehouse(MooseApp & app, Syntax & syntax, ActionFactory 
     _action_factory(factory),
     _generator_valid(false),
     _show_actions(false),
-    _show_parser(false)
+    _show_parser(false),
+    _mesh(nullptr),
+    _displaced_mesh(nullptr)
 {
 }
 
@@ -326,6 +328,8 @@ ActionWarehouse::printActionDependencySets() const
 void
 ActionWarehouse::executeAllActions()
 {
+  _completed_tasks.clear();
+
   if (_show_actions)
   {
     _console << "[DBG][ACT] Action Dependency Sets:\n";
@@ -337,6 +341,7 @@ ActionWarehouse::executeAllActions()
   for (const auto & task : _ordered_names)
   {
     executeActionsWithAction(task);
+    _completed_tasks.insert(task);
     if (_final_task != "" && task == _final_task)
       break;
   }
@@ -439,4 +444,12 @@ const std::string &
 ActionWarehouse::getMooseAppName()
 {
   return _app.name();
+}
+
+bool
+ActionWarehouse::isTaskComplete(const std::string & task) const
+{
+  if (!_action_factory.isRegisteredTask(task))
+    mooseError("\"", task, "\" is not a registered task.");
+  return _completed_tasks.count(task);
 }

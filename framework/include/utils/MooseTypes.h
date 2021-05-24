@@ -188,6 +188,15 @@ typedef StoredRange<std::vector<const Elem *>::iterator, const Elem *> ConstElem
 namespace Moose
 {
 
+/// This is used for places where we initialize some qp-sized data structures
+/// that would end up being sized too small after the quadrature order gets
+/// bumped (dynamically in-sim).  So for these cases, we just use this constant
+/// to size those data structures overly large to accomodate rather than come
+/// up with some overkill complex mechanism for dynamically resizing them.
+/// Eventually, we may need or implement that more sophisticated mechanism and
+/// will no longer need this.
+const size_t constMaxQpsPerElem = 216;
+
 // These are used by MooseVariableData and MooseVariableDataFV
 enum SolutionState
 {
@@ -422,33 +431,24 @@ using ADVariablePhiGradient = ADTemplateVariablePhiGradient<Real>;
 // Templated typed to support is_ad templated classes
 namespace Moose
 {
-
 template <typename T, bool is_ad>
-struct GenericStruct
-{
-  typedef T type;
-};
-template <typename T>
-struct GenericStruct<T, true>
-{
-  typedef typename ADType<T>::type type;
-};
-
+using GenericType = typename std::conditional<is_ad, typename ADType<T>::type, T>::type;
 } // namespace Moose
+
 template <bool is_ad>
-using GenericReal = typename Moose::GenericStruct<Real, is_ad>::type;
+using GenericReal = typename Moose::GenericType<Real, is_ad>;
 template <bool is_ad>
-using GenericRankTwoTensor = typename Moose::GenericStruct<RankTwoTensor, is_ad>::type;
+using GenericRankTwoTensor = typename Moose::GenericType<RankTwoTensor, is_ad>;
 template <bool is_ad>
-using GenericRankThreeTensor = typename Moose::GenericStruct<RankThreeTensor, is_ad>::type;
+using GenericRankThreeTensor = typename Moose::GenericType<RankThreeTensor, is_ad>;
 template <bool is_ad>
-using GenericRankFourTensor = typename Moose::GenericStruct<RankFourTensor, is_ad>::type;
+using GenericRankFourTensor = typename Moose::GenericType<RankFourTensor, is_ad>;
 template <bool is_ad>
-using GenericVariableValue = typename Moose::GenericStruct<VariableValue, is_ad>::type;
+using GenericVariableValue = typename Moose::GenericType<VariableValue, is_ad>;
 template <bool is_ad>
-using GenericVariableGradient = typename Moose::GenericStruct<VariableGradient, is_ad>::type;
+using GenericVariableGradient = typename Moose::GenericType<VariableGradient, is_ad>;
 template <bool is_ad>
-using GenericVariableSecond = typename Moose::GenericStruct<VariableSecond, is_ad>::type;
+using GenericVariableSecond = typename Moose::GenericType<VariableSecond, is_ad>;
 
 #define declareADValidParams(ADObjectType)                                                         \
   template <>                                                                                      \
@@ -504,6 +504,8 @@ namespace Moose
 {
 extern const processor_id_type INVALID_PROCESSOR_ID;
 extern const SubdomainID ANY_BLOCK_ID;
+extern const SubdomainID INTERNAL_SIDE_LOWERD_ID;
+extern const SubdomainID BOUNDARY_SIDE_LOWERD_ID;
 extern const SubdomainID INVALID_BLOCK_ID;
 extern const BoundaryID ANY_BOUNDARY_ID;
 extern const BoundaryID INVALID_BOUNDARY_ID;
@@ -677,7 +679,9 @@ enum EigenSolveType
   EST_KRYLOVSCHUR,     ///< Krylov-Schur
   EST_JACOBI_DAVIDSON, ///< Jacobi-Davidson
   EST_NONLINEAR_POWER, ///< Nonlinear inverse power
-  EST_NEWTON,          ///< Newton-based eigen solver
+  EST_NEWTON, ///< Newton-based eigensolver with an assembled Jacobian matrix (fully coupled by default)
+  EST_PJFNK, ///< Preconditioned Jacobian-free Newton Krylov
+  EST_JFNK   ///< Jacobian-free Newton Krylov
 };
 
 /**
@@ -927,3 +931,14 @@ DerivativeStringClass(MeshGeneratorName);
 
 /// Name of extra element IDs
 DerivativeStringClass(ExtraElementIDName);
+
+/// Name of a Reporter Value, second argument to ReporterName (see Reporter.h)
+DerivativeStringClass(ReporterValueName);
+
+namespace Moose
+{
+extern const TagName SOLUTION_TAG;
+extern const TagName OLD_SOLUTION_TAG;
+extern const TagName OLDER_SOLUTION_TAG;
+extern const TagName PREVIOUS_NL_SOLUTION_TAG;
+}

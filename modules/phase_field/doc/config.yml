@@ -12,9 +12,6 @@ Extensions:
         home: /modules/phase_field
     MooseDocs.extensions.appsyntax:
         executable: ${MOOSE_DIR}/modules/phase_field
-        hide:
-            framework: !include framework/doc/hidden.yml
-            phase_field: !include modules/phase_field/doc/hidden.yml
         remove: !include framework/doc/remove.yml
         includes:
             - framework/include
@@ -27,6 +24,7 @@ Extensions:
         active: True
     MooseDocs.extensions.sqa:
         active: True
+        reports: !include modules/phase_field/doc/sqa_reports.yml
         categories:
             framework: !include framework/doc/sqa_framework.yml
             phase_field: !include modules/phase_field/doc/sqa_phase_field.yml

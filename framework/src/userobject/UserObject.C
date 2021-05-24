@@ -19,6 +19,7 @@ InputParameters
 UserObject::validParams()
 {
   InputParameters params = MooseObject::validParams();
+  params += ReporterInterface::validParams();
 
   // Add the SetupInterface parameter, 'execute_on', and set it to a default of 'timestep_end'
   params += SetupInterface::validParams();
@@ -36,7 +37,6 @@ UserObject::validParams()
                         "In the case where this UserObject is depended upon by an initial "
                         "condition, allow it to be executed twice during the initial setup (once "
                         "before the IC and again after mesh adaptivity (if applicable).");
-
   params.declareControllable("enable");
 
   params.registerBase("UserObject");
@@ -54,7 +54,9 @@ UserObject::UserObject(const InputParameters & parameters)
     UserObjectInterface(this),
     PostprocessorInterface(this),
     VectorPostprocessorInterface(this),
+    ReporterInterface(this),
     DistributionInterface(this),
+    SamplerInterface(this),
     Restartable(this, "UserObjects"),
     MeshMetaDataInterface(this),
     MeshChangedInterface(parameters),
@@ -67,4 +69,53 @@ UserObject::UserObject(const InputParameters & parameters)
     _coord_sys(_assembly.coordSystem()),
     _duplicate_initial_execution(getParam<bool>("allow_duplicate_execution_on_initial"))
 {
+}
+
+std::set<UserObjectName>
+UserObject::getDependObjects() const
+{
+  std::set<UserObjectName> all;
+  for (auto & v : _depend_uo)
+  {
+    all.insert(v);
+    auto & uo = UserObjectInterface::getUserObjectBaseByName(v);
+
+    // Add dependencies of other objects, but don't allow it to call itself. This can happen
+    // through the PostprocessorInterface if a Postprocessor calls getPostprocessorValueByName
+    // with it's own name. This happens in the Receiver, which could use the FEProblem version of
+    // the get method, but this is a fix that prevents an infinite loop occurring by accident for
+    // future objects.
+    if (uo.name() != name())
+    {
+      auto uos = uo.getDependObjects();
+      for (auto & t : uos)
+        all.insert(t);
+    }
+  }
+  return all;
+}
+
+void
+UserObject::addUserObjectDependencyHelper(const UserObject & uo) const
+{
+  _depend_uo.insert(uo.name());
+}
+
+void
+UserObject::addPostprocessorDependencyHelper(const PostprocessorName & name) const
+{
+  _depend_uo.insert(name);
+}
+
+void
+UserObject::addVectorPostprocessorDependencyHelper(const VectorPostprocessorName & name) const
+{
+  _depend_uo.insert(name);
+}
+
+void
+UserObject::setPrimaryThreadCopy(UserObject * primary)
+{
+  if (!_primary_thread_copy && primary != this)
+    _primary_thread_copy = primary;
 }

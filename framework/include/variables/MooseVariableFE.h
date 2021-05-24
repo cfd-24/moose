@@ -46,7 +46,7 @@ InputParameters validParams<ArrayMooseVariable>();
  * ----------------------------------------------------
  * Real                Real                  Real
  * RealVectorValue     RealVectorValue       Real
- * RealEigenVector      Real                  RealEigenVector
+ * RealEigenVector     Real                  RealEigenVector
  *
  */
 template <typename OutputType>
@@ -117,18 +117,7 @@ public:
    * Currently hardcoded to true because we always compute the value.
    */
   bool usesGradPhi() const { return true; }
-  /**
-   * Whether or not this variable is actually using the shape function value.
-   *
-   * Currently hardcoded to true because we always compute the value.
-   */
-  bool usesPhiNeighbor() const { return true; }
-  /**
-   * Whether or not this variable is actually using the shape function gradient.
-   *
-   * Currently hardcoded to true because we always compute the value.
-   */
-  bool usesGradPhiNeighbor() const { return true; }
+
   /**
    * Whether or not this variable is computing any second derivatives.
    */
@@ -138,17 +127,22 @@ public:
    * Whether or not this variable is actually using the shape function second derivative on a
    * neighbor.
    */
-  bool usesSecondPhiNeighbor() const;
+  bool usesSecondPhiNeighbor() const override final;
 
   /**
    * Whether or not this variable is computing any second derivatives.
    */
-  bool computingSecond() const { return usesSecondPhi(); }
+  bool computingSecond() const override final { return usesSecondPhi(); }
 
   /**
    * Whether or not this variable is computing the curl
    */
-  bool computingCurl() const;
+  bool computingCurl() const override final;
+
+  /**
+   * Get the variable name of a component in libMesh
+   */
+  std::string componentName(const unsigned int comp) const;
 
   const std::set<SubdomainID> & activeSubdomains() const override;
   bool activeOnSubdomain(SubdomainID subdomain) const override;
@@ -192,37 +186,51 @@ public:
     return _lower_data->dofIndices();
   }
 
+  void clearAllDofIndices() final;
+
   unsigned int numberOfDofsNeighbor() override { return _neighbor_data->dofIndices().size(); }
 
-  const FieldVariablePhiValue & phi() const { return _element_data->phi(); }
-  const FieldVariablePhiGradient & gradPhi() const { return _element_data->gradPhi(); }
+  const FieldVariablePhiValue & phi() const override { return _element_data->phi(); }
+  const FieldVariablePhiGradient & gradPhi() const override final
+  {
+    return _element_data->gradPhi();
+  }
   const MappedArrayVariablePhiGradient & arrayGradPhi() const
   {
     return _element_data->arrayGradPhi();
   }
-  const FieldVariablePhiSecond & secondPhi() const;
-  const FieldVariablePhiCurl & curlPhi() const;
+  const FieldVariablePhiSecond & secondPhi() const override final;
+  const FieldVariablePhiCurl & curlPhi() const override final;
 
-  const FieldVariablePhiValue & phiFace() const { return _element_data->phiFace(); }
-  const FieldVariablePhiGradient & gradPhiFace() const { return _element_data->gradPhiFace(); }
+  const FieldVariablePhiValue & phiFace() const override final { return _element_data->phiFace(); }
+  const FieldVariablePhiGradient & gradPhiFace() const override final
+  {
+    return _element_data->gradPhiFace();
+  }
   const MappedArrayVariablePhiGradient & arrayGradPhiFace() const
   {
     return _element_data->arrayGradPhiFace();
   }
-  const FieldVariablePhiSecond & secondPhiFace() const;
+  const FieldVariablePhiSecond & secondPhiFace() const override final;
   const FieldVariablePhiCurl & curlPhiFace() const;
 
-  const FieldVariablePhiValue & phiNeighbor() const { return _neighbor_data->phi(); }
-  const FieldVariablePhiGradient & gradPhiNeighbor() const { return _neighbor_data->gradPhi(); }
+  const FieldVariablePhiValue & phiNeighbor() const override final { return _neighbor_data->phi(); }
+  const FieldVariablePhiGradient & gradPhiNeighbor() const override final
+  {
+    return _neighbor_data->gradPhi();
+  }
   const MappedArrayVariablePhiGradient & arrayGradPhiNeighbor() const
   {
     return _neighbor_data->arrayGradPhi();
   }
-  const FieldVariablePhiSecond & secondPhiNeighbor() const;
+  const FieldVariablePhiSecond & secondPhiNeighbor() const override final;
   const FieldVariablePhiCurl & curlPhiNeighbor() const;
 
-  const FieldVariablePhiValue & phiFaceNeighbor() const { return _neighbor_data->phiFace(); }
-  const FieldVariablePhiGradient & gradPhiFaceNeighbor() const
+  const FieldVariablePhiValue & phiFaceNeighbor() const override final
+  {
+    return _neighbor_data->phiFace();
+  }
+  const FieldVariablePhiGradient & gradPhiFaceNeighbor() const override final
   {
     return _neighbor_data->gradPhiFace();
   }
@@ -230,7 +238,7 @@ public:
   {
     return _neighbor_data->arrayGradPhiFace();
   }
-  const FieldVariablePhiSecond & secondPhiFaceNeighbor() const;
+  const FieldVariablePhiSecond & secondPhiFaceNeighbor() const override final;
   const FieldVariablePhiCurl & curlPhiFaceNeighbor() const;
 
   const FieldVariablePhiValue & phiLower() const { return _lower_data->phi(); }
@@ -258,6 +266,10 @@ public:
   {
     return _element_data->vectorTagValue(tag);
   }
+  const FieldVariableGradient & vectorTagGradient(TagID tag) const
+  {
+    return _element_data->vectorTagGradient(tag);
+  }
   const DoFValue & vectorTagDofValue(TagID tag) const
   {
     return _element_data->vectorTagDofValue(tag);
@@ -268,14 +280,20 @@ public:
   }
 
   /// element solutions
-  const FieldVariableValue & sln() const { return _element_data->sln(Moose::Current); }
-  const FieldVariableValue & slnOld() const { return _element_data->sln(Moose::Old); }
-  const FieldVariableValue & slnOlder() const { return _element_data->sln(Moose::Older); }
+  const FieldVariableValue & sln() const override { return _element_data->sln(Moose::Current); }
+  const FieldVariableValue & slnOld() const override { return _element_data->sln(Moose::Old); }
+  const FieldVariableValue & slnOlder() const override { return _element_data->sln(Moose::Older); }
   const FieldVariableValue & slnPreviousNL() const { return _element_data->sln(Moose::PreviousNL); }
 
   /// element gradients
-  const FieldVariableGradient & gradSln() const { return _element_data->gradSln(Moose::Current); }
-  const FieldVariableGradient & gradSlnOld() const { return _element_data->gradSln(Moose::Old); }
+  const FieldVariableGradient & gradSln() const override
+  {
+    return _element_data->gradSln(Moose::Current);
+  }
+  const FieldVariableGradient & gradSlnOld() const override
+  {
+    return _element_data->gradSln(Moose::Old);
+  }
   const FieldVariableGradient & gradSlnOlder() const
   {
     return _element_data->gradSln(Moose::Older);
@@ -311,6 +329,7 @@ public:
   {
     return _element_data->adSln();
   }
+
   const ADTemplateVariableGradient<OutputType> & adGradSln() const override
   {
     return _element_data->adGradSln();
@@ -351,8 +370,14 @@ public:
   const VariableValue & duDotDotDu() const { return _element_data->duDotDotDu(); }
 
   /// neighbor solutions
-  const FieldVariableValue & slnNeighbor() const { return _neighbor_data->sln(Moose::Current); }
-  const FieldVariableValue & slnOldNeighbor() const { return _neighbor_data->sln(Moose::Old); }
+  const FieldVariableValue & slnNeighbor() const override
+  {
+    return _neighbor_data->sln(Moose::Current);
+  }
+  const FieldVariableValue & slnOldNeighbor() const override
+  {
+    return _neighbor_data->sln(Moose::Old);
+  }
   const FieldVariableValue & slnOlderNeighbor() const { return _neighbor_data->sln(Moose::Older); }
   const FieldVariableValue & slnPreviousNLNeighbor() const
   {
@@ -360,11 +385,11 @@ public:
   }
 
   /// neighbor solution gradients
-  const FieldVariableGradient & gradSlnNeighbor() const
+  const FieldVariableGradient & gradSlnNeighbor() const override
   {
     return _neighbor_data->gradSln(Moose::Current);
   }
-  const FieldVariableGradient & gradSlnOldNeighbor() const
+  const FieldVariableGradient & gradSlnOldNeighbor() const override
   {
     return _neighbor_data->gradSln(Moose::Old);
   }
@@ -443,7 +468,7 @@ public:
   /**
    * Set local DOF values and evaluate the values on quadrature points
    */
-  void setDofValues(const DenseVector<OutputData> & values);
+  void setDofValues(const DenseVector<OutputData> & values) override;
 
   /**
    * Write a nodal value to the passed-in solution vector
@@ -501,28 +526,28 @@ public:
   void addSolutionNeighbor(const DenseVector<Number> & v);
 
   const DoFValue & dofValue() const;
-  const DoFValue & dofValues() const;
-  const DoFValue & dofValuesOld() const;
-  const DoFValue & dofValuesOlder() const;
-  const DoFValue & dofValuesPreviousNL() const;
-  const DoFValue & dofValuesNeighbor() const;
-  const DoFValue & dofValuesOldNeighbor() const;
-  const DoFValue & dofValuesOlderNeighbor() const;
-  const DoFValue & dofValuesPreviousNLNeighbor() const;
-  const DoFValue & dofValuesDot() const;
-  const DoFValue & dofValuesDotNeighbor() const;
+  const DoFValue & dofValues() const override;
+  const DoFValue & dofValuesOld() const override;
+  const DoFValue & dofValuesOlder() const override;
+  const DoFValue & dofValuesPreviousNL() const override;
+  const DoFValue & dofValuesNeighbor() const override;
+  const DoFValue & dofValuesOldNeighbor() const override;
+  const DoFValue & dofValuesOlderNeighbor() const override;
+  const DoFValue & dofValuesPreviousNLNeighbor() const override;
+  const DoFValue & dofValuesDot() const override;
+  const DoFValue & dofValuesDotNeighbor() const override;
   const DoFValue & dofValuesDotNeighborResidual() const;
-  const DoFValue & dofValuesDotOld() const;
-  const DoFValue & dofValuesDotOldNeighbor() const;
-  const DoFValue & dofValuesDotDot() const;
-  const DoFValue & dofValuesDotDotNeighbor() const;
+  const DoFValue & dofValuesDotOld() const override;
+  const DoFValue & dofValuesDotOldNeighbor() const override;
+  const DoFValue & dofValuesDotDot() const override;
+  const DoFValue & dofValuesDotDotNeighbor() const override;
   const DoFValue & dofValuesDotDotNeighborResidual() const;
-  const DoFValue & dofValuesDotDotOld() const;
-  const DoFValue & dofValuesDotDotOldNeighbor() const;
-  const MooseArray<Number> & dofValuesDuDotDu() const;
-  const MooseArray<Number> & dofValuesDuDotDuNeighbor() const;
-  const MooseArray<Number> & dofValuesDuDotDotDu() const;
-  const MooseArray<Number> & dofValuesDuDotDotDuNeighbor() const;
+  const DoFValue & dofValuesDotDotOld() const override;
+  const DoFValue & dofValuesDotDotOldNeighbor() const override;
+  const MooseArray<Number> & dofValuesDuDotDu() const override;
+  const MooseArray<Number> & dofValuesDuDotDuNeighbor() const override;
+  const MooseArray<Number> & dofValuesDuDotDotDu() const override;
+  const MooseArray<Number> & dofValuesDuDotDotDuNeighbor() const override;
 
   /**
    * Return the AD dof values
@@ -561,21 +586,21 @@ public:
   /**
    * Return phi size
    */
-  virtual size_t phiSize() const final { return _element_data->phiSize(); }
+  virtual std::size_t phiSize() const final { return _element_data->phiSize(); }
   /**
    * Return phiFace size
    */
-  virtual size_t phiFaceSize() const final { return _element_data->phiFaceSize(); }
+  virtual std::size_t phiFaceSize() const final { return _element_data->phiFaceSize(); }
   /**
    * Return phiNeighbor size
    */
-  virtual size_t phiNeighborSize() const final { return _neighbor_data->phiSize(); }
+  virtual std::size_t phiNeighborSize() const final { return _neighbor_data->phiSize(); }
   /**
    * Return phiFaceNeighbor size
    */
-  virtual size_t phiFaceNeighborSize() const final { return _neighbor_data->phiFaceSize(); }
+  virtual std::size_t phiFaceNeighborSize() const final { return _neighbor_data->phiFaceSize(); }
 
-  size_t phiLowerSize() const final { return _lower_data->phiSize(); }
+  std::size_t phiLowerSize() const final { return _lower_data->phiSize(); }
 
   /**
    * Methods for retrieving values of variables at the nodes
@@ -603,18 +628,15 @@ public:
   const OutputType & nodalValueDuDotDuNeighbor() const;
   const OutputType & nodalValueDuDotDotDuNeighbor() const;
 
-  /**
-   * Methods for retrieving values of variables at the nodes in a MooseArray for AuxKernelBase
-   */
-  const MooseArray<OutputType> & nodalValueArray()
+  const MooseArray<OutputType> & nodalValueArray() const override
   {
     return _element_data->nodalValueArray(Moose::Current);
   }
-  const MooseArray<OutputType> & nodalValueOldArray()
+  const MooseArray<OutputType> & nodalValueOldArray() const override
   {
     return _element_data->nodalValueArray(Moose::Old);
   }
-  const MooseArray<OutputType> & nodalValueOlderArray()
+  const MooseArray<OutputType> & nodalValueOlderArray() const override
   {
     return _element_data->nodalValueArray(Moose::Older);
   }
@@ -626,6 +648,8 @@ public:
 
   virtual void computeNodalValues() override;
   virtual void computeNodalNeighborValues() override;
+
+  unsigned int oldestSolutionStateRequested() const override final;
 
 protected:
   usingMooseVariableBaseMembers;

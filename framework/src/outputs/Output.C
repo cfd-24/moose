@@ -88,6 +88,9 @@ Output::Output(const InputParameters & parameters)
     Restartable(this, "Output"),
     MeshChangedInterface(parameters),
     SetupInterface(this),
+    PostprocessorInterface(this),
+    VectorPostprocessorInterface(this),
+    ReporterInterface(this),
     PerfGraphInterface(this),
     _problem_ptr(getParam<FEProblemBase *>("_fe_problem_base")),
     _transient(_problem_ptr->isTransient()),
@@ -114,7 +117,6 @@ Output::Output(const InputParameters & parameters)
                                        : std::numeric_limits<int>::max()),
     _t_tol(getParam<Real>("time_tolerance")),
     _sync_only(getParam<bool>("sync_only")),
-    _initialized(false),
     _allow_output(true),
     _is_advanced(false),
     _advanced_execute_on(_execute_on, parameters),
@@ -150,12 +152,6 @@ Output::Output(const InputParameters & parameters)
     for (auto & me : add)
       _execute_on.push_back(me);
   }
-}
-
-void
-Output::initialSetup()
-{
-  _initialized = true;
 }
 
 void

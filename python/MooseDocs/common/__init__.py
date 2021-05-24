@@ -19,9 +19,9 @@ from .read import read, write, get_language
 from .regex import regex
 from .project_find import project_find
 from .check_filenames import check_filenames
-from .get_requirements import get_requirements
 from .extract_content import extractContent, extractContentSettings, fix_moose_header
 from .log import report_exception
 from .report_error import report_error
 from .exceptions import MooseDocsException
 from .get_content import get_content, get_files, create_file_page, get_items
+from .has_tokens import has_tokens

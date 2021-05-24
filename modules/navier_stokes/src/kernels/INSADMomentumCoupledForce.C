@@ -47,20 +47,16 @@ INSADMomentumCoupledForce::INSADMomentumCoupledForce(const InputParameters & par
   // don't need
   auto & obj_tracker = const_cast<INSADObjectTracker &>(
       _fe_problem.getUserObject<INSADObjectTracker>("ins_ad_object_tracker"));
-  obj_tracker.set("has_coupled_force", true);
-  if (has_coupled)
+  for (const auto block_id : blockIDs())
   {
-    std::vector<const ADVectorVariableValue *> coupled_vars;
-    for (const auto i : make_range(coupledComponents("coupled_vector_var")))
-      coupled_vars.push_back(&adCoupledVectorValue("coupled_vector_var", i));
-    obj_tracker.set("coupled_force_var", coupled_vars);
-  }
-  if (has_function)
-  {
-    std::vector<const Function *> coupled_functions;
-    for (const auto & fn_name : getParam<std::vector<FunctionName>>("vector_function"))
-      coupled_functions.push_back(&_fe_problem.getFunction(fn_name, _tid));
-    obj_tracker.set("coupled_force_vector_function", coupled_functions);
+    obj_tracker.set("has_coupled_force", true, block_id);
+    if (has_coupled)
+      obj_tracker.set(
+          "coupled_force_var", getParam<std::vector<VariableName>>("coupled_vector_var"), block_id);
+    if (has_function)
+      obj_tracker.set("coupled_force_vector_function",
+                      getParam<std::vector<FunctionName>>("vector_function"),
+                      block_id);
   }
 }
 

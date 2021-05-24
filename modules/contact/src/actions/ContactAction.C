@@ -43,28 +43,14 @@ ContactAction::validParams()
   InputParameters params = Action::validParams();
   params += ContactAction::commonParameters();
 
-  params.addParam<BoundaryName>("primary", "The primary surface");
-  params.addParam<BoundaryName>("secondary", "The secondary surface");
-  params.addDeprecatedParam<BoundaryName>(
-      "master",
-      "The primary surface",
-      "The 'master' parameter will be removed on September 1, 2020. "
-      "Please use the 'primary' parameter instead.");
-  params.addDeprecatedParam<BoundaryName>(
-      "slave",
-      "The secondary surface",
-      "The 'slave' parameter will be removed on September 1, 2020. "
-      "Please use the 'secondary' parameter instead.");
+  params.addRequiredParam<BoundaryName>("primary", "The primary surface");
+  params.addRequiredParam<BoundaryName>("secondary", "The secondary surface");
 
   params.addParam<MeshGeneratorName>("mesh", "", "The mesh generator for mortar method");
   params.addParam<VariableName>("secondary_gap_offset",
                                 "Offset to gap distance from secondary side");
   params.addParam<VariableName>("mapped_primary_gap_offset",
                                 "Offset to gap distance mapped from primary side");
-
-  params.addParam<VariableName>("disp_x", "The x displacement");
-  params.addParam<VariableName>("disp_y", "The y displacement");
-  params.addParam<VariableName>("disp_z", "The z displacement");
 
   params.addParam<std::vector<VariableName>>(
       "displacements",
@@ -131,10 +117,8 @@ ContactAction::validParams()
 
 ContactAction::ContactAction(const InputParameters & params)
   : Action(params),
-    _primary(isParamValid("primary") ? getParam<BoundaryName>("primary")
-                                     : getParam<BoundaryName>("master")),
-    _secondary(isParamValid("secondary") ? getParam<BoundaryName>("secondary")
-                                         : getParam<BoundaryName>("slave")),
+    _primary(getParam<BoundaryName>("primary")),
+    _secondary(getParam<BoundaryName>("secondary")),
     _model(getParam<MooseEnum>("model")),
     _formulation(getParam<MooseEnum>("formulation")),
     _system(getParam<MooseEnum>("system")),
@@ -313,7 +297,7 @@ ContactAction::addMortarContact()
 {
   std::string action_name = MooseUtils::shortName(name());
 
-  std::vector<VariableName> displacements = getDisplacementVarNames();
+  std::vector<VariableName> displacements = getParam<std::vector<VariableName>>("displacements");
   const unsigned int ndisp = displacements.size();
 
   // Definitions for mortar contact.
@@ -494,7 +478,7 @@ ContactAction::addNodeFaceContact()
 {
   std::string action_name = MooseUtils::shortName(name());
 
-  std::vector<VariableName> displacements = getDisplacementVarNames();
+  std::vector<VariableName> displacements = getParam<std::vector<VariableName>>("displacements");
   const unsigned int ndisp = displacements.size();
 
   std::string constraint_type;
@@ -584,31 +568,4 @@ ContactAction::commonParameters()
   params.addParam<MooseEnum>("model", ContactAction::getModelEnum(), "The contact model to use");
 
   return params;
-}
-
-std::vector<VariableName>
-ContactAction::getDisplacementVarNames()
-{
-  std::vector<VariableName> displacements;
-  if (isParamValid("displacements"))
-    displacements = getParam<std::vector<VariableName>>("displacements");
-  else
-  {
-    // Legacy parameter scheme for displacements
-    if (!isParamValid("disp_x"))
-      mooseError("Specify displacement variables using the `displacements` parameter.");
-    displacements.push_back(getParam<VariableName>("disp_x"));
-
-    if (isParamValid("disp_y"))
-    {
-      displacements.push_back(getParam<VariableName>("disp_y"));
-      if (isParamValid("disp_z"))
-        displacements.push_back(getParam<VariableName>("disp_z"));
-    }
-
-    mooseDeprecated("use the `displacements` parameter rather than the `disp_*` parameters (those "
-                    "will go away with the deprecation of the Solid Mechanics module).");
-  }
-
-  return displacements;
 }

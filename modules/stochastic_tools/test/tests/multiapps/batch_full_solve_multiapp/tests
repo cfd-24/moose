@@ -45,6 +45,7 @@
       input = master_full_solve.i
       csvdiff = master_full_solve_out_storage_0002.csv
       prereq = batch/exodus_2
+      max_parallel = 1
 
       detail = 'on a single processor,'
     []

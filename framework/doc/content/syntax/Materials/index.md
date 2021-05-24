@@ -84,7 +84,7 @@ Objects that require material properties consume them using one of two functions
 1. `getADMaterialProperty<TYPE>` retrieves a property with a name "property_name" to be
    consumed by the object that will include automatic differentiation.
 
-For on object to consume a property the same basic procedure is followed. First in the consuming
+For an object to consume a property the same basic procedure is followed. First in the consuming
 objects header file a `MaterialProperty` with the correct type (e.g., `Real` for the diffusivity
 example) is declared (in the C++ sense) as follows. Notice, that the member variable is a +const+
 reference. The const is important. Consuming objects cannot modify a property, it only uses the
@@ -147,7 +147,7 @@ fashion.
 
 ## Default Material Properties
 
-The [#material-name] input parameter also provides the ability to set default values for scalar
+The `MaterialPropertyName` input parameter also provides the ability to set default values for scalar
 (`Real`) properties. In the above example, the input file can use number or
 parsed function (see [MooseParsedFunction.md]) to define a the property value. For example, the input
 snippet above could set a constant value.
@@ -197,7 +197,31 @@ table lists the types of properties that are available for automatic output.
 | RealVectorValue | `MaterialRealVectorValueAux` | prop_1, prop_2, and prop_3 |
 | RealTensorValue | `MaterialRealTensorValueAux` | prop_11, prop_12, prop_13, prop_21, etc. |
 
+## Material sorting
+
+Materials are sorted such that one material may consume a property produced by
+another material and know that the consumed property will be up-to-date,
+e.g. the producer material will execute before the consumer material. If a
+cyclic dependency is detected between two materials, then MOOSE will produce an
+error.
+
 ## Advanced Topics
+
+### Evaluation of Material Properties on Element Faces
+
+MOOSE creates three copies of a *non-boundary restricted* material for evaluations on quadrature points of elements, element faces on both the current element side and the neighboring element side.
+The name of the element interior material is the material name from the input file, while the name of the element face material is the material name appended with `_face` and the name of the neighbor face material is the material name appended with `_neighbor`.
+The element material can be identified in a material with its member variable `_bnd=false`.
+The other two copies have `_bnd=true`.
+The element face material and neighbor face material differentiate with each other by the value of another member variable `_neighbor`.
+If a material declares multiple material properties and some of them are not needed on element faces, users can switch off their declaration and evaluation based on member variable `_bnd`.
+
+### Interface Material Objects
+
+MOOSE allows a material to be defined on an internal boundary of a mesh with a specific material type `InterfaceMaterial`.
+Material properties declared in interface materials are available on both sides of the boundary.
+Interface materials allows users to evaluate the properties on element faces based on quantities on both sides of the element face.
+Interface materials are often used along with [InterfaceKernel](syntax/InterfaceKernels/index.md).
 
 ### Discrete Material Objects
 

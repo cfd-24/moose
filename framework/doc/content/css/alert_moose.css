@@ -19,18 +19,12 @@
     --alert-warning-content-dark: rgba(36, 34, 10, 1.0);
     --alert-construction-dark: rgba(210, 72, 0, 1.0);
     --alert-construction-content-dark: rgba(34, 10, 0, 1.0);
-
-    /* I am unable to test dark-mode colors, using the standard */
-    --alert-tip: rgba(0, 128, 21, 1.0);
-    --alert-tip-content: rgba(0, 128, 21, 0.2);
+    --alert-tip-dark: rgba(0, 128, 21, 1.0);
+    --alert-tip-content-dark: rgba(0, 128, 21, 0.2);
 }
 
 .moose-alert-title a{
     color:white;
-}
-
-.card-content .moose-alert-content img{
-    width:auto;
 }
 
 /* ALERTS */
@@ -44,7 +38,7 @@
 }
 
 .moose-alert-title, .moose-alert-content{
-  padding:10pt;
+    padding:5pt 5pt 10pt 10pt;
 }
 
 
@@ -90,26 +84,13 @@
 }
 
 .moose-alert-construction .moose-alert-content{
-    background-color: var(--alert-construction-content);
-    min-height:120px;
-}
-
-.moose-alert-construction-img{
-    float:left;
-    margin-right:10px;
-    height:100px;
-    width:unset;
-}
-
-.card-content .moose-alert-content img
-{
-    width:unset;
+  background-color: var(--alert-construction-content);
 }
 
 .moose-alert-title-brand{
   text-transform: uppercase;
   padding-right: 1ex;
-  font-weight: 400;
+  font-weight: 100;
 }
 
 /*
@@ -125,9 +106,16 @@
 }
 
 .moose-alert-title{
-    padding-top:6px;
-    padding-bottom:6px;
+    padding-top:2px;
+    padding-bottom:2px;
 }
+
+.moose-alert-title .moose-inline-icon{
+    vertical-align: middle;
+    padding-right:5pt;
+    margin-bottom:3pt;
+}
+
 /* Text and background color for dark mode */
 @media (prefers-color-scheme: dark), (prefers-dark-interface) {
  .moose-alert-note .moose-alert-title {
@@ -157,7 +145,6 @@
  }
  .moose-alert-construction .moose-alert-content{
    background-color: var(--alert-construction-content-dark);
-   min-height:120px;
  }
 
  .moose-alert-note a {

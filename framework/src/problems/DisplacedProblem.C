@@ -22,6 +22,7 @@
 #include "DisplacedProblem.h"
 #include "TimedPrint.h"
 #include "libmesh/numeric_vector.h"
+#include "libmesh/fe_interface.h"
 
 registerMooseObject("MooseApp", DisplacedProblem);
 
@@ -31,6 +32,8 @@ InputParameters
 DisplacedProblem::validParams()
 {
   InputParameters params = SubProblem::validParams();
+  params.addClassDescription("A Problem object for provided access to the displaced finite element "
+                             "mesh and associated variables.");
   params.addPrivateParam<MooseMesh *>("mesh");
   params.addPrivateParam<std::vector<std::string>>("displacements");
   return params;
@@ -47,11 +50,11 @@ DisplacedProblem::DisplacedProblem(const InputParameters & parameters)
     _displacements(getParam<std::vector<std::string>>("displacements")),
     _displaced_nl(*this,
                   _mproblem.getNonlinearSystemBase(),
-                  _mproblem.getNonlinearSystemBase().name(),
+                  "displaced_" + _mproblem.getNonlinearSystemBase().name(),
                   Moose::VAR_NONLINEAR),
     _displaced_aux(*this,
                    _mproblem.getAuxiliarySystem(),
-                   _mproblem.getAuxiliarySystem().name(),
+                   "displaced_" + _mproblem.getAuxiliarySystem().name(),
                    Moose::VAR_AUXILIARY),
     _geometric_search_data(*this, _mesh),
     _eq_init_timer(registerTimedSection("eq::init", 2)),
@@ -69,8 +72,16 @@ DisplacedProblem::DisplacedProblem(const InputParameters & parameters)
   _displaced_nl.addTimeIntegrator(_mproblem.getNonlinearSystemBase().getSharedTimeIntegrator());
   _displaced_aux.addTimeIntegrator(_mproblem.getAuxiliarySystem().getSharedTimeIntegrator());
 
-  if (!_default_ghosting)
-    _mesh.getMesh().remove_ghosting_functor(_mesh.getMesh().default_ghosting());
+  // // Generally speaking, the mesh is prepared for use, and consequently remote elements are deleted
+  // // well before our Problem(s) are constructed. Historically, in MooseMesh we have a bunch of
+  // // needs_prepare type flags that make it so we never call prepare_for_use (and consequently
+  // // delete_remote_elements) again. So the below line, historically, has had no impact. HOWEVER:
+  // // I've added some code in SetupMeshCompleteAction for deleting remote elements post
+  // // EquationSystems::init. If I execute that code without default ghosting, then I get > 40 MOOSE
+  // // test failures, so we clearly have some simulations that are not yet covered properly by
+  // // relationship managers. Until that is resolved, I am going to retain default geometric ghosting
+  // if (!_default_ghosting)
+  //   _mesh.getMesh().remove_ghosting_functor(_mesh.getMesh().default_ghosting());
 
   automaticScaling(_mproblem.automaticScaling());
 }
@@ -82,7 +93,7 @@ DisplacedProblem::isTransient() const
 }
 
 Moose::CoordinateSystemType
-DisplacedProblem::getCoordSystem(SubdomainID sid)
+DisplacedProblem::getCoordSystem(SubdomainID sid) const
 {
   return _mproblem.getCoordSystem(sid);
 }
@@ -106,6 +117,13 @@ DisplacedProblem::bumpVolumeQRuleOrder(Order order, SubdomainID block)
 {
   for (unsigned int tid = 0; tid < libMesh::n_threads(); ++tid)
     _assembly[tid]->bumpVolumeQRuleOrder(order, block);
+}
+
+void
+DisplacedProblem::bumpAllQRuleOrder(Order order, SubdomainID block)
+{
+  for (unsigned int tid = 0; tid < libMesh::n_threads(); ++tid)
+    _assembly[tid]->bumpAllQRuleOrder(order, block);
 }
 
 void
@@ -392,11 +410,11 @@ DisplacedProblem::hasVariable(const std::string & var_name) const
     return false;
 }
 
-MooseVariableFEBase &
+const MooseVariableFieldBase &
 DisplacedProblem::getVariable(THREAD_ID tid,
                               const std::string & var_name,
                               Moose::VarKindType expected_var_type,
-                              Moose::VarFieldType expected_var_field_type)
+                              Moose::VarFieldType expected_var_field_type) const
 {
   return getVariableHelper(
       tid, var_name, expected_var_type, expected_var_field_type, _displaced_nl, _displaced_aux);
@@ -411,6 +429,17 @@ DisplacedProblem::getStandardVariable(THREAD_ID tid, const std::string & var_nam
     mooseError("No variable with name '" + var_name + "'");
 
   return _displaced_aux.getFieldVariable<Real>(tid, var_name);
+}
+
+MooseVariableFieldBase &
+DisplacedProblem::getActualFieldVariable(THREAD_ID tid, const std::string & var_name)
+{
+  if (_displaced_nl.hasVariable(var_name))
+    return _displaced_nl.getActualFieldVariable<Real>(tid, var_name);
+  else if (!_displaced_aux.hasVariable(var_name))
+    mooseError("No variable with name '" + var_name + "'");
+
+  return _displaced_aux.getActualFieldVariable<Real>(tid, var_name);
 }
 
 VectorMooseVariable &
@@ -589,9 +618,11 @@ DisplacedProblem::reinitElem(const Elem * elem, THREAD_ID tid)
 void
 DisplacedProblem::reinitElemPhys(const Elem * elem,
                                  const std::vector<Point> & phys_points_in_elem,
-                                 THREAD_ID tid,
-                                 bool)
+                                 THREAD_ID tid)
 {
+  mooseAssert(_mesh.queryElemPtr(elem->id()) == elem,
+              "Are you calling this method with a undisplaced mesh element?");
+
   _assembly[tid]->reinitAtPhysical(elem, phys_points_in_elem);
 
   _displaced_nl.prepare(tid);
@@ -681,6 +712,9 @@ DisplacedProblem::reinitNeighborPhys(const Elem * neighbor,
                                      const std::vector<Point> & physical_points,
                                      THREAD_ID tid)
 {
+  mooseAssert(_mesh.queryElemPtr(neighbor->id()) == neighbor,
+              "Are you calling this method with a undisplaced mesh element?");
+
   // Reinit shape functions
   _assembly[tid]->reinitNeighborAtPhysical(neighbor, neighbor_side, physical_points);
 
@@ -700,6 +734,9 @@ DisplacedProblem::reinitNeighborPhys(const Elem * neighbor,
                                      const std::vector<Point> & physical_points,
                                      THREAD_ID tid)
 {
+  mooseAssert(_mesh.queryElemPtr(neighbor->id()) == neighbor,
+              "Are you calling this method with a undisplaced mesh element?");
+
   // Reinit shape functions
   _assembly[tid]->reinitNeighborAtPhysical(neighbor, physical_points);
 
@@ -712,6 +749,32 @@ DisplacedProblem::reinitNeighborPhys(const Elem * neighbor,
   // Compute values at the points
   _displaced_nl.reinitNeighbor(neighbor, tid);
   _displaced_aux.reinitNeighbor(neighbor, tid);
+}
+
+void
+DisplacedProblem::reinitElemNeighborAndLowerD(const Elem * elem, unsigned int side, THREAD_ID tid)
+{
+  reinitNeighbor(elem, side, tid);
+
+  const Elem * lower_d_elem = _mesh.getLowerDElem(elem, side);
+  if (lower_d_elem && lower_d_elem->subdomain_id() == Moose::INTERNAL_SIDE_LOWERD_ID)
+    reinitLowerDElem(lower_d_elem, tid);
+  else
+  {
+    // with mesh refinement, lower-dimensional element might be defined on neighbor side
+    auto & neighbor = _assembly[tid]->neighbor();
+    auto & neighbor_side = _assembly[tid]->neighborSide();
+    const Elem * lower_d_elem_neighbor = _mesh.getLowerDElem(neighbor, neighbor_side);
+    if (lower_d_elem_neighbor &&
+        lower_d_elem_neighbor->subdomain_id() == Moose::INTERNAL_SIDE_LOWERD_ID)
+    {
+      auto qps = _assembly[tid]->qPointsFaceNeighbor().stdVector();
+      std::vector<Point> reference_points;
+      FEInterface::inverse_map(
+          lower_d_elem_neighbor->dim(), FEType(), lower_d_elem_neighbor, qps, reference_points);
+      reinitLowerDElem(lower_d_elem_neighbor, tid, &qps);
+    }
+  }
 }
 
 void
@@ -749,6 +812,12 @@ void
 DisplacedProblem::addResidualNeighbor(THREAD_ID tid)
 {
   _assembly[tid]->addResidualNeighbor(getVectorTags(Moose::VECTOR_TAG_RESIDUAL));
+}
+
+void
+DisplacedProblem::addResidualLower(THREAD_ID tid)
+{
+  _assembly[tid]->addResidualLower(getVectorTags(Moose::VECTOR_TAG_RESIDUAL));
 }
 
 void
@@ -816,6 +885,18 @@ DisplacedProblem::addJacobianNeighbor(THREAD_ID tid)
 }
 
 void
+DisplacedProblem::addJacobianNeighborLowerD(THREAD_ID tid)
+{
+  _assembly[tid]->addJacobianNeighborLowerD();
+}
+
+void
+DisplacedProblem::addJacobianLowerD(THREAD_ID tid)
+{
+  _assembly[tid]->addJacobianLowerD();
+}
+
+void
 DisplacedProblem::cacheJacobian(THREAD_ID tid)
 {
   _assembly[tid]->cacheJacobian();
@@ -837,6 +918,14 @@ void
 DisplacedProblem::addCachedJacobian(THREAD_ID tid)
 {
   _assembly[tid]->addCachedJacobian();
+}
+
+void
+DisplacedProblem::addCachedJacobianContributions(THREAD_ID tid)
+{
+  mooseDeprecated("please use addCachedJacobian");
+
+  addCachedJacobian(tid);
 }
 
 void
@@ -933,6 +1022,11 @@ DisplacedProblem::meshChanged()
   // then reinitialize GeometricSearchData such that we have all the correct geometric information
   // for the changed mesh
   updateMesh(/*mesh_changing=*/true);
+
+  // Since the mesh has changed, we need to make sure that we update any of our
+  // MOOSE-system specific data. libmesh system data has already been updated
+  _displaced_nl.update(/*update_libmesh_system=*/false);
+  _displaced_aux.update(/*update_libmesh_system=*/false);
 }
 
 void
@@ -1026,4 +1120,37 @@ const CouplingMatrix *
 DisplacedProblem::couplingMatrix() const
 {
   return _mproblem.couplingMatrix();
+}
+
+bool
+DisplacedProblem::computingScalingJacobian() const
+{
+  return _mproblem.computingScalingJacobian();
+}
+
+bool
+DisplacedProblem::computingScalingResidual() const
+{
+  return _mproblem.computingScalingResidual();
+}
+
+void
+DisplacedProblem::initialSetup()
+{
+  _displaced_nl.initialSetup();
+  _displaced_aux.initialSetup();
+}
+
+void
+DisplacedProblem::timestepSetup()
+{
+  _displaced_nl.timestepSetup();
+  _displaced_aux.timestepSetup();
+}
+
+void
+DisplacedProblem::haveADObjects(const bool have_ad_objects)
+{
+  _have_ad_objects = have_ad_objects;
+  _mproblem.SubProblem::haveADObjects(have_ad_objects);
 }

@@ -35,10 +35,9 @@ AuxiliarySystem::AuxiliarySystem(FEProblemBase & subproblem, const std::string &
   : SystemBase(subproblem, name, Moose::VAR_AUXILIARY),
     PerfGraphInterface(subproblem.getMooseApp().perfGraph(), "AuxiliarySystem"),
     _fe_problem(subproblem),
-    _sys(subproblem.es().add_system<TransientExplicitSystem>(name)),
-    _current_solution(NULL),
+    _sys(subproblem.es().add_system<ExplicitSystem>(name)),
+    _current_solution(_sys.current_local_solution.get()),
     _serialized_solution(*NumericVector<Number>::build(_fe_problem.comm()).release()),
-    _solution_previous_nl(NULL),
     _u_dot(NULL),
     _u_dotdot(NULL),
     _u_dot_old(NULL),
@@ -49,18 +48,24 @@ AuxiliarySystem::AuxiliarySystem(FEProblemBase & subproblem, const std::string &
     _elemental_aux_storage(_app.getExecuteOnEnum()),
     _nodal_vec_aux_storage(_app.getExecuteOnEnum()),
     _elemental_vec_aux_storage(_app.getExecuteOnEnum()),
+    _nodal_array_aux_storage(_app.getExecuteOnEnum()),
+    _elemental_array_aux_storage(_app.getExecuteOnEnum()),
     _compute_scalar_vars_timer(registerTimedSection("computeScalarVars", 1)),
     _compute_nodal_vars_timer(registerTimedSection("computeNodalVars", 1)),
     _compute_nodal_vec_vars_timer(registerTimedSection("computeNodalVecVars", 1)),
+    _compute_nodal_array_vars_timer(registerTimedSection("computeNodalArrayVars", 1)),
     _compute_elemental_vars_timer(registerTimedSection("computeElementalVars", 1)),
-    _compute_elemental_vec_vars_timer(registerTimedSection("computeElementalVecVars", 1))
+    _compute_elemental_vec_vars_timer(registerTimedSection("computeElementalVecVars", 1)),
+    _compute_elemental_array_vars_timer(registerTimedSection("computeElementalArrayVars", 1))
 {
   _nodal_vars.resize(libMesh::n_threads());
   _nodal_std_vars.resize(libMesh::n_threads());
   _nodal_vec_vars.resize(libMesh::n_threads());
+  _nodal_array_vars.resize(libMesh::n_threads());
   _elem_vars.resize(libMesh::n_threads());
   _elem_std_vars.resize(libMesh::n_threads());
   _elem_vec_vars.resize(libMesh::n_threads());
+  _elem_array_vars.resize(libMesh::n_threads());
 
   if (!_fe_problem.defaultGhosting())
   {
@@ -68,10 +73,6 @@ AuxiliarySystem::AuxiliarySystem(FEProblemBase & subproblem, const std::string &
     dof_map.remove_algebraic_ghosting_functor(dof_map.default_algebraic_ghosting());
     dof_map.set_implicit_neighbor_dofs(false);
   }
-
-  /// Forcefully init the default solution states to match those available in libMesh
-  /// Must be called here because it would call virtuals in the parent class
-  solutionState(_default_solution_states);
 }
 
 AuxiliarySystem::~AuxiliarySystem() { delete &_serialized_solution; }
@@ -90,15 +91,10 @@ AuxiliarySystem::addDotVectors()
 }
 
 void
-AuxiliarySystem::addExtraVectors()
-{
-  if (_fe_problem.needsPreviousNewtonIteration())
-    _solution_previous_nl = &addVector("u_previous_newton", true, GHOSTED);
-}
-
-void
 AuxiliarySystem::initialSetup()
 {
+  SystemBase::initialSetup();
+
   for (unsigned int tid = 0; tid < libMesh::n_threads(); tid++)
   {
     _aux_scalar_storage.sort(tid);
@@ -110,63 +106,85 @@ AuxiliarySystem::initialSetup()
     _nodal_vec_aux_storage.sort(tid);
     _nodal_vec_aux_storage.initialSetup(tid);
 
+    _nodal_array_aux_storage.sort(tid);
+    _nodal_array_aux_storage.initialSetup(tid);
+
     _elemental_aux_storage.sort(tid);
     _elemental_aux_storage.initialSetup(tid);
 
     _elemental_vec_aux_storage.sort(tid);
     _elemental_vec_aux_storage.initialSetup(tid);
+
+    _elemental_array_aux_storage.sort(tid);
+    _elemental_array_aux_storage.initialSetup(tid);
   }
 }
 
 void
 AuxiliarySystem::timestepSetup()
 {
+  SystemBase::timestepSetup();
+
   for (unsigned int tid = 0; tid < libMesh::n_threads(); tid++)
   {
     _aux_scalar_storage.timestepSetup(tid);
     _nodal_aux_storage.timestepSetup(tid);
     _nodal_vec_aux_storage.timestepSetup(tid);
+    _nodal_array_aux_storage.timestepSetup(tid);
     _elemental_aux_storage.timestepSetup(tid);
     _elemental_vec_aux_storage.timestepSetup(tid);
+    _elemental_array_aux_storage.timestepSetup(tid);
   }
 }
 
 void
 AuxiliarySystem::subdomainSetup()
 {
+  SystemBase::subdomainSetup();
+
   for (unsigned int tid = 0; tid < libMesh::n_threads(); tid++)
   {
     _aux_scalar_storage.subdomainSetup(tid);
     _nodal_aux_storage.subdomainSetup(tid);
     _nodal_vec_aux_storage.subdomainSetup(tid);
+    _nodal_array_aux_storage.subdomainSetup(tid);
     _elemental_aux_storage.subdomainSetup(tid);
     _elemental_vec_aux_storage.subdomainSetup(tid);
+    _elemental_array_aux_storage.subdomainSetup(tid);
   }
 }
 
 void
 AuxiliarySystem::jacobianSetup()
 {
+  SystemBase::jacobianSetup();
+
   for (unsigned int tid = 0; tid < libMesh::n_threads(); tid++)
   {
     _aux_scalar_storage.jacobianSetup(tid);
     _nodal_aux_storage.jacobianSetup(tid);
     _nodal_vec_aux_storage.jacobianSetup(tid);
+    _nodal_array_aux_storage.jacobianSetup(tid);
     _elemental_aux_storage.jacobianSetup(tid);
     _elemental_vec_aux_storage.jacobianSetup(tid);
+    _elemental_array_aux_storage.jacobianSetup(tid);
   }
 }
 
 void
 AuxiliarySystem::residualSetup()
 {
+  SystemBase::residualSetup();
+
   for (unsigned int tid = 0; tid < libMesh::n_threads(); tid++)
   {
     _aux_scalar_storage.residualSetup(tid);
     _nodal_aux_storage.residualSetup(tid);
     _nodal_vec_aux_storage.residualSetup(tid);
+    _nodal_array_aux_storage.residualSetup(tid);
     _elemental_aux_storage.residualSetup(tid);
     _elemental_vec_aux_storage.residualSetup(tid);
+    _elemental_array_aux_storage.residualSetup(tid);
   }
 }
 
@@ -176,8 +194,10 @@ AuxiliarySystem::updateActive(THREAD_ID tid)
   _aux_scalar_storage.updateActive(tid);
   _nodal_aux_storage.updateActive(tid);
   _nodal_vec_aux_storage.updateActive(tid);
+  _nodal_array_aux_storage.updateActive(tid);
   _elemental_aux_storage.updateActive(tid);
   _elemental_vec_aux_storage.updateActive(tid);
+  _elemental_array_aux_storage.updateActive(tid);
 }
 
 void
@@ -190,7 +210,7 @@ AuxiliarySystem::addVariable(const std::string & var_type,
   auto fe_type = FEType(Utility::string_to_enum<Order>(parameters.get<MooseEnum>("order")),
                         Utility::string_to_enum<FEFamily>(parameters.get<MooseEnum>("family")));
 
-  if (var_type == "MooseVariableScalar" || var_type == "ArrayMooseVariable")
+  if (var_type == "MooseVariableScalar")
     return;
 
   for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
@@ -198,7 +218,7 @@ AuxiliarySystem::addVariable(const std::string & var_type,
     if (fe_type.family == LAGRANGE_VEC || fe_type.family == NEDELEC_ONE ||
         fe_type.family == MONOMIAL_VEC)
     {
-      VectorMooseVariable * var = _vars[tid].getFieldVariable<RealVectorValue>(name);
+      auto * var = _vars[tid].getActualFieldVariable<RealVectorValue>(name);
       if (var)
       {
         if (var->feType().family == LAGRANGE_VEC)
@@ -216,7 +236,9 @@ AuxiliarySystem::addVariable(const std::string & var_type,
 
     else
     {
-      MooseVariable * var = _vars[tid].getFieldVariable<Real>(name);
+      MooseVariableBase * var_base = _vars[tid].getVariable(name);
+
+      auto * const var = dynamic_cast<MooseVariableField<Real> *>(var_base);
 
       if (var)
       {
@@ -229,6 +251,22 @@ AuxiliarySystem::addVariable(const std::string & var_type,
         {
           _elem_vars[tid].push_back(var);
           _elem_std_vars[tid].push_back(var);
+        }
+      }
+
+      auto * const avar = dynamic_cast<MooseVariableField<RealEigenVector> *>(var_base);
+
+      if (avar)
+      {
+        if (avar->feType().family == LAGRANGE)
+        {
+          _nodal_vars[tid].push_back(avar);
+          _nodal_array_vars[tid].push_back(avar);
+        }
+        else
+        {
+          _elem_vars[tid].push_back(avar);
+          _elem_array_vars[tid].push_back(avar);
         }
       }
     }
@@ -272,6 +310,16 @@ AuxiliarySystem::addKernel(const std::string & kernel_name,
         _nodal_vec_aux_storage.addObject(kernel, tid);
       else
         _elemental_vec_aux_storage.addObject(kernel, tid);
+    }
+
+    else if (parameters.get<std::string>("_moose_base") == "ArrayAuxKernel")
+    {
+      std::shared_ptr<ArrayAuxKernel> kernel =
+          _factory.create<ArrayAuxKernel>(kernel_name, name, parameters, tid);
+      if (kernel->isNodal())
+        _nodal_array_aux_storage.addObject(kernel, tid);
+      else
+        _elemental_array_aux_storage.addObject(kernel, tid);
     }
   }
 }
@@ -370,8 +418,10 @@ AuxiliarySystem::compute(ExecFlagType type)
 
   if (_vars[0].fieldVariables().size() > 0)
   {
+    computeNodalArrayVars(type);
     computeNodalVecVars(type);
     computeNodalVars(type);
+    computeElementalArrayVars(type);
     computeElementalVecVars(type);
     computeElementalVars(type);
 
@@ -411,6 +461,17 @@ AuxiliarySystem::getDependObjects(ExecFlagType type)
     }
   }
 
+  // Elemental ArrayAuxKernels
+  {
+    const std::vector<std::shared_ptr<ArrayAuxKernel>> & auxs =
+        _elemental_array_aux_storage[type].getActiveObjects();
+    for (const auto & aux : auxs)
+    {
+      const std::set<UserObjectName> & uo = aux->getDependObjects();
+      depend_objects.insert(uo.begin(), uo.end());
+    }
+  }
+
   // Nodal AuxKernels
   {
     const std::vector<std::shared_ptr<AuxKernel>> & auxs =
@@ -426,6 +487,17 @@ AuxiliarySystem::getDependObjects(ExecFlagType type)
   {
     const std::vector<std::shared_ptr<VectorAuxKernel>> & auxs =
         _nodal_vec_aux_storage[type].getActiveObjects();
+    for (const auto & aux : auxs)
+    {
+      const std::set<UserObjectName> & uo = aux->getDependObjects();
+      depend_objects.insert(uo.begin(), uo.end());
+    }
+  }
+
+  // Nodal ArrayAuxKernels
+  {
+    const std::vector<std::shared_ptr<ArrayAuxKernel>> & auxs =
+        _nodal_array_aux_storage[type].getActiveObjects();
     for (const auto & aux : auxs)
     {
       const std::set<UserObjectName> & uo = aux->getDependObjects();
@@ -463,6 +535,17 @@ AuxiliarySystem::getDependObjects()
     }
   }
 
+  // Elemental ArrayAuxKernels
+  {
+    const std::vector<std::shared_ptr<ArrayAuxKernel>> & auxs =
+        _elemental_array_aux_storage.getActiveObjects();
+    for (const auto & aux : auxs)
+    {
+      const std::set<UserObjectName> & uo = aux->getDependObjects();
+      depend_objects.insert(uo.begin(), uo.end());
+    }
+  }
+
   // Nodal AuxKernels
   {
     const std::vector<std::shared_ptr<AuxKernel>> & auxs = _nodal_aux_storage.getActiveObjects();
@@ -484,20 +567,18 @@ AuxiliarySystem::getDependObjects()
     }
   }
 
+  // Nodal ArrayAuxKernels
+  {
+    const std::vector<std::shared_ptr<ArrayAuxKernel>> & auxs =
+        _nodal_array_aux_storage.getActiveObjects();
+    for (const auto & aux : auxs)
+    {
+      const std::set<UserObjectName> & uo = aux->getDependObjects();
+      depend_objects.insert(uo.begin(), uo.end());
+    }
+  }
+
   return depend_objects;
-}
-
-NumericVector<Number> &
-AuxiliarySystem::addVector(const std::string & vector_name,
-                           const bool project,
-                           const ParallelType type)
-{
-  if (hasVector(vector_name))
-    return getVector(vector_name);
-
-  NumericVector<Number> * vec = &_sys.add_vector(vector_name, project, type);
-
-  return *vec;
 }
 
 void
@@ -584,6 +665,13 @@ AuxiliarySystem::computeNodalVecVars(ExecFlagType type)
 }
 
 void
+AuxiliarySystem::computeNodalArrayVars(ExecFlagType type)
+{
+  const MooseObjectWarehouse<ArrayAuxKernel> & nodal = _nodal_array_aux_storage[type];
+  computeNodalVarsHelper<ArrayAuxKernel>(nodal, _nodal_array_vars, _compute_nodal_array_vars_timer);
+}
+
+void
 AuxiliarySystem::computeElementalVars(ExecFlagType type)
 {
   const MooseObjectWarehouse<AuxKernel> & elemental = _elemental_aux_storage[type];
@@ -596,6 +684,14 @@ AuxiliarySystem::computeElementalVecVars(ExecFlagType type)
   const MooseObjectWarehouse<VectorAuxKernel> & elemental = _elemental_vec_aux_storage[type];
   computeElementalVarsHelper<VectorAuxKernel>(
       elemental, _elem_vec_vars, _compute_elemental_vec_vars_timer);
+}
+
+void
+AuxiliarySystem::computeElementalArrayVars(ExecFlagType type)
+{
+  const MooseObjectWarehouse<ArrayAuxKernel> & elemental = _elemental_array_aux_storage[type];
+  computeElementalVarsHelper<ArrayAuxKernel>(
+      elemental, _elem_array_vars, _compute_elemental_array_vars_timer);
 }
 
 void

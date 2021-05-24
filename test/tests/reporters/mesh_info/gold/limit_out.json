@@ -1,0 +1,42 @@
+{
+    "time_steps": [
+        {
+            "reporters": {
+                "mesh_info": {
+                    "info": {
+                        "name": "mesh_info",
+                        "type": "MeshInfo"
+                    },
+                    "values": [
+                        {
+                            "name": "num_dofs",
+                            "type": "unsigned int",
+                            "value": 0
+                        }
+                    ]
+                }
+            },
+            "time": 0.0,
+            "time_step": 0
+        },
+        {
+            "reporters": {
+                "mesh_info": {
+                    "info": {
+                        "name": "mesh_info",
+                        "type": "MeshInfo"
+                    },
+                    "values": [
+                        {
+                            "name": "num_dofs",
+                            "type": "unsigned int",
+                            "value": 221
+                        }
+                    ]
+                }
+            },
+            "time": 1.0,
+            "time_step": 1
+        }
+    ]
+}

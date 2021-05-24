@@ -24,8 +24,10 @@ public:
 protected:
   void actSubdomainChecks();
   void actOutputGeneration();
+  void actEigenstrainNames();
   void actOutputMatProp();
   void actGatherActionParameters();
+  void verifyOrderAndFamilyOutputs();
 
   virtual std::string getKernelType();
   virtual InputParameters getKernelParameters(std::string type);
@@ -98,14 +100,22 @@ protected:
 
   /// output materials to generate scalar stress/strain tensor quantities
   std::vector<std::string> _generate_output;
+  MultiMooseEnum _material_output_order;
+  MultiMooseEnum _material_output_family;
 
   /// booleans used to determine if cylindrical axis points are passed
   bool _cylindrical_axis_point1_valid;
   bool _cylindrical_axis_point2_valid;
   bool _direction_valid;
+  bool _verbose;
 
   /// points used to determine axis of rotation for cyclindrical stress/strain quantities
   Point _cylindrical_axis_point1;
   Point _cylindrical_axis_point2;
   Point _direction;
+
+  /// automatically gather names of eigenstrain tensors provided by simulation objects
+  const bool _auto_eigenstrain;
+
+  std::vector<MaterialPropertyName> _eigenstrain_names;
 };

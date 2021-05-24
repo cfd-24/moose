@@ -132,7 +132,8 @@ FancyExtruderGenerator::generate()
   // Original copyright: Copyright (C) 2002-2019 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
   // Original license is LGPL so it can be used here.
 
-  auto mesh = _mesh->buildMeshBaseObject();
+  auto mesh = buildMeshBaseObject();
+  mesh->set_mesh_dimension(_input->mesh_dimension() + 1);
 
   std::unique_ptr<MeshBase> input = std::move(_input);
 
@@ -561,6 +562,8 @@ FancyExtruderGenerator::generate()
       }
     }
   }
+
+  mesh->set_isnt_prepared();
 
   return mesh;
 }

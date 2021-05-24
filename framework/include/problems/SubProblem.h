@@ -40,6 +40,7 @@ class RestartableDataValue;
 class SystemBase;
 class LineSearch;
 class FaceInfo;
+class MooseObjectName;
 
 // libMesh forward declarations
 namespace libMesh
@@ -198,14 +199,27 @@ public:
    * in question is not in the expected System or of the expected
    * type.
    */
+  virtual const MooseVariableFieldBase & getVariable(
+      THREAD_ID tid,
+      const std::string & var_name,
+      Moose::VarKindType expected_var_type = Moose::VarKindType::VAR_ANY,
+      Moose::VarFieldType expected_var_field_type = Moose::VarFieldType::VAR_FIELD_ANY) const = 0;
   virtual MooseVariableFieldBase &
   getVariable(THREAD_ID tid,
               const std::string & var_name,
               Moose::VarKindType expected_var_type = Moose::VarKindType::VAR_ANY,
-              Moose::VarFieldType expected_var_field_type = Moose::VarFieldType::VAR_FIELD_ANY) = 0;
+              Moose::VarFieldType expected_var_field_type = Moose::VarFieldType::VAR_FIELD_ANY)
+  {
+    return const_cast<MooseVariableFieldBase &>(const_cast<const SubProblem *>(this)->getVariable(
+        tid, var_name, expected_var_type, expected_var_field_type));
+  }
 
   /// Returns the variable reference for requested MooseVariable which may be in any system
   virtual MooseVariable & getStandardVariable(THREAD_ID tid, const std::string & var_name) = 0;
+
+  /// Returns the variable reference for requested MooseVariableField which may be in any system
+  virtual MooseVariableFieldBase & getActualFieldVariable(THREAD_ID tid,
+                                                          const std::string & var_name) = 0;
 
   /// Returns the variable reference for requested VectorMooseVariable which may be in any system
   virtual VectorMooseVariable & getVectorVariable(THREAD_ID tid, const std::string & var_name) = 0;
@@ -312,7 +326,7 @@ public:
   virtual void prepareShapes(unsigned int var, THREAD_ID tid) = 0;
   virtual void prepareFaceShapes(unsigned int var, THREAD_ID tid) = 0;
   virtual void prepareNeighborShapes(unsigned int var, THREAD_ID tid) = 0;
-  virtual Moose::CoordinateSystemType getCoordSystem(SubdomainID sid) = 0;
+  virtual Moose::CoordinateSystemType getCoordSystem(SubdomainID sid) const = 0;
 
   /**
    * Returns the desired radial direction for RZ coordinate transformation
@@ -327,6 +341,7 @@ public:
 
   virtual void addResidual(THREAD_ID tid) = 0;
   virtual void addResidualNeighbor(THREAD_ID tid) = 0;
+  virtual void addResidualLower(THREAD_ID tid) = 0;
 
   virtual void cacheResidual(THREAD_ID tid) = 0;
   virtual void cacheResidualNeighbor(THREAD_ID tid) = 0;
@@ -337,6 +352,8 @@ public:
 
   virtual void addJacobian(THREAD_ID tid) = 0;
   virtual void addJacobianNeighbor(THREAD_ID tid) = 0;
+  virtual void addJacobianNeighborLowerD(THREAD_ID tid) = 0;
+  virtual void addJacobianLowerD(THREAD_ID tid) = 0;
   virtual void addJacobianBlock(SparseMatrix<Number> & jacobian,
                                 unsigned int ivar,
                                 unsigned int jvar,
@@ -354,6 +371,10 @@ public:
   virtual void cacheJacobian(THREAD_ID tid) = 0;
   virtual void cacheJacobianNeighbor(THREAD_ID tid) = 0;
   virtual void addCachedJacobian(THREAD_ID tid) = 0;
+  /**
+   * Deprecated method. Use addCachedJacobian
+   */
+  virtual void addCachedJacobianContributions(THREAD_ID tid) = 0;
 
   virtual void prepare(const Elem * elem, THREAD_ID tid) = 0;
   virtual void prepareFace(const Elem * elem, THREAD_ID tid) = 0;
@@ -369,8 +390,7 @@ public:
   virtual void reinitElem(const Elem * elem, THREAD_ID tid) = 0;
   virtual void reinitElemPhys(const Elem * elem,
                               const std::vector<Point> & phys_points_in_elem,
-                              THREAD_ID tid,
-                              bool suppress_displaced_init = false) = 0;
+                              THREAD_ID tid) = 0;
   virtual void
   reinitElemFace(const Elem * elem, unsigned int side, BoundaryID bnd_id, THREAD_ID tid) = 0;
   virtual void reinitLowerDElem(const Elem * lower_d_elem,
@@ -389,6 +409,7 @@ public:
   virtual void reinitNeighborPhys(const Elem * neighbor,
                                   const std::vector<Point> & physical_points,
                                   THREAD_ID tid) = 0;
+  virtual void reinitElemNeighborAndLowerD(const Elem * elem, unsigned int side, THREAD_ID tid) = 0;
   /**
    * fills the VariableValue arrays for scalar variables from the solution vector
    * @param tid The thread id
@@ -428,6 +449,11 @@ public:
                                      const std::vector<Point> * const pts,
                                      const std::vector<Real> * const weights = nullptr,
                                      THREAD_ID tid = 0);
+
+  /**
+   * reinitialize a neighboring lower dimensional element
+   */
+  void reinitNeighborLowerDElem(const Elem * elem, THREAD_ID tid = 0);
 
   /**
    * Reinit a mortar element to obtain a valid JxW
@@ -542,6 +568,16 @@ public:
   virtual bool isMatPropRequested(const std::string & prop_name) const;
 
   /**
+   * Helper for tracking the object that is consuming a property for MaterialPropertyDebugOutput
+   */
+  void addConsumedPropertyName(const MooseObjectName & obj_name, const std::string & prop_name);
+
+  /**
+   * Return the map that tracks the object with consumed material properties
+   */
+  const std::map<MooseObjectName, std::set<std::string>> & getConsumedPropertyMap() const;
+
+  /**
    * Will make sure that all dofs connected to elem_id are ghosted to this processor
    */
   virtual void addGhostedElem(dof_id_type elem_id) = 0;
@@ -602,22 +638,42 @@ public:
   const CouplingMatrix & nonlocalCouplingMatrix() const { return _nonlocal_cm; }
 
   /**
-   * Returns true if the problem is in the process of computing Jacobian
+   * Returns true if the problem is in the process of computing the Jacobian
    */
-  virtual const bool & currentlyComputingJacobian() const { return _currently_computing_jacobian; };
+  const bool & currentlyComputingJacobian() const { return _currently_computing_jacobian; };
 
-  virtual void setCurrentlyComputingJacobian(const bool & flag)
+  /**
+   * Set whether or not the problem is in the process of computing the Jacobian
+   */
+  void setCurrentlyComputingJacobian(const bool currently_computing_jacobian)
   {
-    _currently_computing_jacobian = flag;
+    _currently_computing_jacobian = currently_computing_jacobian;
   }
 
-  /// Check whether residual being evaulated is non-linear
+  /**
+   * Returns true if the problem is in the process of computing the nonlinear residual
+   */
   bool computingNonlinearResid() const { return _computing_nonlinear_residual; }
 
-  /// Set whether residual being evaulated is non-linear
-  virtual void computingNonlinearResid(bool computing_nonlinear_residual)
+  /**
+   * Set whether or not the problem is in the process of computing the nonlinear residual
+   */
+  virtual void computingNonlinearResid(const bool computing_nonlinear_residual)
   {
     _computing_nonlinear_residual = computing_nonlinear_residual;
+  }
+
+  /**
+   * Returns true if the problem is in the process of computing the residual
+   */
+  bool currentlyComputingResidual() const { return _currently_computing_residual; }
+
+  /**
+   * Set whether or not the problem is in the process of computing the residual
+   */
+  virtual void setCurrentlyComputingResidual(const bool currently_computing_residual)
+  {
+    _currently_computing_residual = currently_computing_residual;
   }
 
   /// Is it safe to access the tagged  matrices
@@ -666,10 +722,34 @@ public:
    */
   virtual const CouplingMatrix * couplingMatrix() const = 0;
 
+private:
+  /**
+   * Creates (n_sys - 1) clones of the provided algebraic ghosting functor (corresponding to the
+   * nonlinear system algebraic ghosting functor), initializes the clone with the appropriate
+   * DofMap, and then adds the clone to said DofMap
+   * @param algebraic_gf the (nonlinear system's) algebraic ghosting functor to clone
+   * @param to_mesh whether the clone should be added to the corresponding DofMap's underyling
+   * MeshBase (the underlying MeshBase will be the same for every system held by this object's
+   * EquationSystems object)
+   */
+  void cloneAlgebraicGhostingFunctor(GhostingFunctor & algebraic_gf, bool to_mesh = true);
+
+public:
   /**
    * Add an algebraic ghosting functor to this problem's DofMaps
    */
   void addAlgebraicGhostingFunctor(GhostingFunctor & algebraic_gf, bool to_mesh = true);
+
+  /**
+   * Add an algebraic ghosting functor to this problem's DofMaps
+   */
+  void addAlgebraicGhostingFunctor(std::shared_ptr<GhostingFunctor> algebraic_gf,
+                                   bool to_mesh = true);
+
+  /**
+   * Remove an algebraic ghosting functor from this problem's DofMaps
+   */
+  void removeAlgebraicGhostingFunctor(GhostingFunctor & algebraic_gf);
 
   /**
    * Automatic scaling setter
@@ -683,6 +763,33 @@ public:
    */
   bool automaticScaling() const;
 
+#ifdef MOOSE_GLOBAL_AD_INDEXING
+  /**
+   * Tells this problem that assembly involves a scaling vector
+   */
+  void hasScalingVector();
+#endif
+
+  /**
+   * Whether we have a displaced problem in our simulation
+   */
+  virtual bool haveDisplaced() const = 0;
+
+  /**
+   * Getter for whether we're computing the scaling jacobian
+   */
+  virtual bool computingScalingJacobian() const = 0;
+
+  /**
+   * Getter for whether we're computing the scaling residual
+   */
+  virtual bool computingScalingResidual() const = 0;
+
+  /**
+   * Clear dof indices from variables in nl and aux systems
+   */
+  void clearAllDofIndices();
+
 protected:
   /**
    * Helper function called by getVariable that handles the logic for
@@ -692,8 +799,8 @@ protected:
                                              const std::string & var_name,
                                              Moose::VarKindType expected_var_type,
                                              Moose::VarFieldType expected_var_field_type,
-                                             SystemBase & nl,
-                                             SystemBase & aux);
+                                             const SystemBase & nl,
+                                             const SystemBase & aux) const;
 
   /**
    * Verify the integrity of _vector_tags and _typed_vector_tags
@@ -772,8 +879,11 @@ protected:
   /// Flag to determine whether the problem is currently computing Jacobian
   bool _currently_computing_jacobian;
 
-  /// Whether residual being evaulated is non-linear
+  /// Whether the non-linear residual is being evaluated
   bool _computing_nonlinear_residual;
+
+  /// Whether the residual is being evaluated
+  bool _currently_computing_residual;
 
   /// Is it safe to retrieve data from tagged matrices
   bool _safe_access_tagged_matrices;
@@ -804,6 +914,15 @@ private:
   std::string restrictionSubdomainCheckName(SubdomainID check_id);
   std::string restrictionBoundaryCheckName(BoundaryID check_id);
   ///@}
+
+  // Contains properties consumed by objects, see addConsumedPropertyName
+  std::map<MooseObjectName, std::set<std::string>> _consumed_material_properties;
+
+  /// A map from a root algebraic ghosting functor, e.g. the ghosting functor passed into \p
+  /// removeAlgebraicGhostingFunctor, to its clones in other systems, e.g. systems other than system
+  /// 0
+  std::unordered_map<GhostingFunctor *, std::vector<std::shared_ptr<GhostingFunctor>>>
+      _root_alg_gf_to_sys_clones;
 
   friend class Restartable;
 };

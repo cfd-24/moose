@@ -40,8 +40,13 @@ ComputeMortarFunctor::ComputeMortarFunctor(
   for (auto mc : mortar_constraints)
     _mortar_constraints.push_back(mc.get());
 
-  _primary_boundary_id = _amg.primary_secondary_boundary_id_pairs[0].first;
-  _secondary_boundary_id = _amg.primary_secondary_boundary_id_pairs[0].second;
+  const auto & primary_secondary_boundary_id_pairs = _amg.primarySecondaryBoundaryIDPairs();
+  mooseAssert(primary_secondary_boundary_id_pairs.size() == 1,
+              "We currently only support a single primary-secondary ID pair per mortar segment "
+              "mesh. We can probably support this without too much trouble if you want to contact "
+              "a MOOSE developer.");
+  _primary_boundary_id = primary_secondary_boundary_id_pairs[0].first;
+  _secondary_boundary_id = primary_secondary_boundary_id_pairs[0].second;
 }
 
 void
@@ -60,9 +65,10 @@ ComputeMortarFunctor::operator()()
   std::vector<Point> custom_xi1_pts, custom_xi2_pts;
 
   unsigned int num_cached = 0;
+
   for (MeshBase::const_element_iterator
-           el = _amg.mortar_segment_mesh.active_local_elements_begin(),
-           end_el = _amg.mortar_segment_mesh.active_local_elements_end();
+           el = _amg.mortarSegmentMesh().active_local_elements_begin(),
+           end_el = _amg.mortarSegmentMesh().active_local_elements_end();
        el != end_el;
        ++el)
   {
@@ -85,7 +91,7 @@ ComputeMortarFunctor::operator()()
       continue;
 
     // Get a reference to the MortarSegmentInfo for this Elem.
-    const MortarSegmentInfo & msinfo = _amg.msm_elem_to_info.at(msm_elem);
+    const MortarSegmentInfo & msinfo = _amg.mortarSegmentMeshElemToInfo().at(msm_elem);
 
     // There may be no contribution from the primary side if it is not "in contact".
     bool has_secondary = msinfo.secondary_elem ? true : false;
@@ -128,6 +134,9 @@ ComputeMortarFunctor::operator()()
       Real xi1_eta = 0.5 * (1 - eta) * msinfo.xi1_a + 0.5 * (1 + eta) * msinfo.xi1_b;
       custom_xi1_pts[qp] = xi1_eta;
     }
+
+    const auto normals = _amg.getNormals(*msinfo.secondary_elem, custom_xi1_pts);
+    const auto nodal_normals = _amg.getNodalNormals(*msinfo.secondary_elem);
 
     const Elem * reinit_secondary_elem = secondary_ip;
 
@@ -178,6 +187,12 @@ ComputeMortarFunctor::operator()()
     // secondary (element) and primary (neighbor)
     _subproblem.reinitLowerDElem(secondary_face_elem, /*tid=*/0, &custom_xi1_pts);
 
+    // All this does currently is sets the neighbor/primary lower dimensional elem in Assembly and
+    // computes its volume for potential use in the MortarConstraints. Solution continuity
+    // stabilization for example relies on being able to access the volume
+    if (_has_primary)
+      _subproblem.reinitNeighborLowerDElem(msinfo.primary_elem);
+
     // reinit higher-dimensional secondary face/boundary materials. Do this after we reinit lower-d
     // variables in case we want to pull the lower-d variable values into the secondary
     // face/boundary materials. Be careful not to execute stateful materials since conceptually they
@@ -189,44 +204,40 @@ ComputeMortarFunctor::operator()()
     _fe_problem.reinitMaterialsBoundary(
         _secondary_boundary_id, /*tid=*/0, /*swap_stateful=*/false, /*execute_stateful=*/false);
 
+    num_cached++;
     if (!_fe_problem.currentlyComputingJacobian())
     {
-      for (auto && mc : _mortar_constraints)
+      for (auto * const mc : _mortar_constraints)
+      {
+        mc->setNormals(mc->interpolateNormals() ? normals : nodal_normals);
         mc->computeResidual(_has_primary);
+      }
 
       _assembly.cacheResidual();
       _assembly.cacheResidualNeighbor();
       _assembly.cacheResidualLower();
-
-      num_cached++;
 
       if (num_cached % 20 == 0)
         _assembly.addCachedResiduals();
     }
     else
     {
-      for (auto && mc : _mortar_constraints)
+      for (auto * const mc : _mortar_constraints)
+      {
+        mc->setNormals(mc->interpolateNormals() ? normals : nodal_normals);
         mc->computeJacobian(_has_primary);
+      }
 
-      // Cache SecondarySecondary
-      _assembly.cacheJacobian();
-
-      // It doesn't appears that we have caching functions for these yet, or at least it's not
-      // used in ComputeJacobianThread. I'll make sure to add/use them if these methods show up in
-      // profiling
-      //
-      // Add SecondaryPrimary, PrimarySecondary, PrimaryPrimary
-      _assembly.addJacobianNeighbor();
-
-      // Add LowerLower, LowerSecondary, LowerPrimary, SecondaryLower, PrimaryLower
-      _assembly.addJacobianLower();
-
-      num_cached++;
+      _assembly.cacheJacobianMortar();
 
       if (num_cached % 20 == 0)
         _assembly.addCachedJacobian();
     }
   } // end for loop over elements
+
+  // Call any post operations for our mortar constraints
+  for (auto * const mc : _mortar_constraints)
+    mc->post();
 
   // Make sure any remaining cached residuals/Jacobians get added
   if (!_fe_problem.currentlyComputingJacobian())

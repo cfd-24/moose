@@ -114,10 +114,8 @@ PicardSolve::PicardSolve(Executioner * ex)
     _has_picard_norm(!getParam<bool>("disable_picard_residual_norm_check")),
     _picard_rel_tol(getParam<Real>("picard_rel_tol")),
     _picard_abs_tol(getParam<Real>("picard_abs_tol")),
-    _picard_custom_pp(
-        isParamValid("picard_custom_pp")
-            ? &_problem.getPostprocessorValue(getParam<PostprocessorName>("picard_custom_pp"))
-            : nullptr),
+    _picard_custom_pp(isParamValid("picard_custom_pp") ? &getPostprocessorValue("picard_custom_pp")
+                                                       : nullptr),
     _custom_rel_tol(getParam<Real>("custom_rel_tol")),
     _custom_abs_tol(getParam<Real>("custom_abs_tol")),
     _picard_force_norms(getParam<bool>("picard_force_norms")),
@@ -135,7 +133,8 @@ PicardSolve::PicardSolve(Executioner * ex)
     _previous_entering_time(_problem.time() - 1),
     _solve_message(_problem.shouldSolve() ? "Solve Converged!" : "Solve Skipped!"),
     _auto_advance_set_by_user(isParamValid("auto_advance")),
-    _auto_advance_user_value(_auto_advance_set_by_user ? getParam<bool>("auto_advance") : true)
+    _auto_advance_user_value(_auto_advance_set_by_user ? getParam<bool>("auto_advance") : true),
+    _fail_step(false)
 {
   if (_relax_factor != 1.0)
     // Store a copy of the previous solution here
@@ -166,8 +165,7 @@ PicardSolve::solve()
   if (_relax_factor != 1.0)
   {
     // Snag all of the local dof indices for all of these variables
-    System & libmesh_nl_system = _nl.system();
-    AllLocalDofIndicesThread aldit(libmesh_nl_system, _relaxed_vars);
+    AllLocalDofIndicesThread aldit(_problem, _relaxed_vars);
     ConstElemRange & elem_range = *_problem.mesh().getActiveLocalElementRange();
     Threads::parallel_reduce(elem_range, aldit);
 
@@ -179,8 +177,7 @@ PicardSolve::solve()
   if (_picard_self_relaxation_factor != 1.0)
   {
     // Snag all of the local dof indices for all of these variables
-    System & libmesh_nl_system = _nl.system();
-    AllLocalDofIndicesThread aldit(libmesh_nl_system, _picard_self_relaxed_variables);
+    AllLocalDofIndicesThread aldit(_problem, _picard_self_relaxed_variables);
     ConstElemRange & elem_range = *_problem.mesh().getActiveLocalElementRange();
     Threads::parallel_reduce(elem_range, aldit);
 
@@ -195,6 +192,7 @@ PicardSolve::solve()
   }
 
   Real pp_scaling = 1.0;
+  std::ostringstream pp_history;
 
   for (_picard_it = 0; _picard_it < _picard_max_its; ++_picard_it)
   {
@@ -249,6 +247,11 @@ PicardSolve::solve()
           !getParam<bool>("direct_pp_value"))
         pp_scaling = *_picard_custom_pp;
       pp_new = *_picard_custom_pp;
+
+      auto ppname = getParam<PostprocessorName>("picard_custom_pp");
+      pp_history << std::setw(2) << _picard_it + 1 << " Picard " << ppname << " = "
+                 << Console::outputNorm(std::numeric_limits<Real>::max(), pp_new, 8) << "\n";
+      _console << pp_history.str();
     }
 
     if (solve_converged)
@@ -494,6 +497,12 @@ PicardSolve::solveStep(Real begin_norm_old,
       _picard_status = MoosePicardConvergenceReason::DIVERGED_FAILED_MULTIAPP;
       return false;
     }
+  }
+
+  if (_fail_step)
+  {
+    _fail_step = false;
+    return false;
   }
 
   _executioner.postSolve();

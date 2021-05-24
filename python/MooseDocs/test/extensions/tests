@@ -1,13 +1,18 @@
 [Tests]
   [all]
     design = 'MooseDocs/index.md'
-    issues = '#6699 #9638 #12049 #13567 #13611 #15232'
+    issues = '#6699 #9638 #12049 #13567 #13611 #15232 #15927 #16622'
 
     requirement = "The system shall include documentation tools that provide support for"
     [core]
       type = PythonUnitTest
       input = test_core.py
       detail = "markdown-like syntax,"
+    []
+    [special]
+      type = PythonUnitTest
+      input = test_special.py
+      detail = "special characters,"
     []
     [comment]
       type = PythonUnitTest
@@ -42,12 +47,67 @@
     [appsyntax]
       type = PythonUnitTest
       input = test_appsyntax.py
-      detail = "automatically retrieving application syntax, and"
+      detail = "automatically retrieving application syntax,"
     []
     [alert]
       type = PythonUnitTest
       input = test_alert.py
-      detail = "creating alert text boxes."
+      detail = "creating alert text boxes,"
+    []
+    [media]
+      type = PythonUnitTest
+      input = test_media.py
+      detail = "displaying images and videos,"
+    []
+    [listing]
+      type = PythonUnitTest
+      input = test_listing.py
+      detail = "creating source code listings,"
+    []
+    [gallery]
+      type = PythonUnitTest
+      input = test_gallery.py
+      detail = "displaying image galleries,"
+    []
+    [template]
+      type = PythonUnitTest
+      input = test_template.py
+      detail = "template files,"
+    []
+    [devel]
+      type = PythonUnitTest
+      input = test_devel.py
+      detail = "creating syntax examples,"
+    []
+    [ifelse]
+      type = PythonUnitTest
+      input = test_ifelse.py
+      detail = "conditional operations, "
+    []
+    [pysyntax]
+      type = PythonUnitTest
+      input = test_pysyntax.py
+      detail = "automatically retrieving python syntax,"
+    []
+    [modal]
+      type = PythonUnitTest
+      input = test_modal.py
+      detail = "create modal website content,"
+    []
+    [katex]
+      type = PythonUnitTest
+      input = test_katex.py
+      detail = "support equations,"
+    []
+    [datetime]
+      type = PythonUnitTest
+      input = test_datetime.py
+      detail = "include date/time operations, and"
+    []
+    [gitutils]
+      type = PythonUnitTest
+      input = test_gitutils.py
+      detail = "include git repository information."
     []
   []
 []

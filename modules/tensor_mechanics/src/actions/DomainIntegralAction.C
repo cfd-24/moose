@@ -64,9 +64,6 @@ DomainIntegralAction::validParams()
   params.addParam<std::vector<VariableName>>(
       "displacements",
       "The displacements appropriate for the simulation geometry and coordinate system");
-  params.addParam<VariableName>("disp_x", "The x displacement");
-  params.addParam<VariableName>("disp_y", "The y displacement");
-  params.addParam<VariableName>("disp_z", "The z displacement");
   params.addParam<VariableName>("temperature", "", "The temperature");
   MooseEnum position_type("Angle Distance", "Distance");
   params.addParam<MooseEnum>(
@@ -84,10 +81,6 @@ DomainIntegralAction::validParams()
       false,
       "Calculate an equivalent K from KI, KII and KIII, assuming self-similar crack growth.");
   params.addParam<bool>("output_q", true, "Output q");
-  params.addParam<bool>("solid_mechanics",
-                        false,
-                        "Set to true if the solid_mechanics system is "
-                        "used.");
   params.addRequiredParam<bool>(
       "incremental", "Flag to indicate whether an incremental or total model is being used.");
   params.addParam<std::vector<MaterialPropertyName>>(
@@ -134,7 +127,6 @@ DomainIntegralAction::DomainIntegralAction(const InputParameters & params)
     _get_equivalent_k(getParam<bool>("equivalent_k")),
     _use_displaced_mesh(false),
     _output_q(getParam<bool>("output_q")),
-    _solid_mechanics(getParam<bool>("solid_mechanics")),
     _incremental(getParam<bool>("incremental")),
     _convert_J_to_K(isParamValid("convert_J_to_K") ? getParam<bool>("convert_J_to_K") : false)
 {
@@ -195,34 +187,12 @@ DomainIntegralAction::DomainIntegralAction(const InputParameters & params)
   MultiMooseEnum integral_moose_enums = getParam<MultiMooseEnum>("integrals");
   for (unsigned int i = 0; i < integral_moose_enums.size(); ++i)
   {
-    if (isParamValid("displacements"))
-    {
-      _displacements = getParam<std::vector<VariableName>>("displacements");
+    _displacements = getParam<std::vector<VariableName>>("displacements");
 
-      if (_displacements.size() < 2)
-        paramError(
-            "displacements",
-            "DomainIntegral error: The size of the displacements vector should at least be 2.");
-    }
-    else
-    {
-      if (isParamValid("disp_x") || isParamValid("disp_y") || isParamValid("disp_z"))
-        mooseDeprecated("DomainIntegral Warning: disp_x, disp_y and disp_z are deprecated. "
-                        "Please specify displacements using the `displacements` parameter.");
-
-      if (!isParamValid("disp_x") || !isParamValid("disp_y"))
-        paramError(
-            "displacements",
-            "DomainIntegral error: Specify displacements using the `displacements` parameter.");
-      else
-      {
-        _displacements.clear();
-        _displacements.push_back(getParam<VariableName>("disp_x"));
-        _displacements.push_back(getParam<VariableName>("disp_y"));
-        if (isParamValid("disp_z"))
-          _displacements.push_back(getParam<VariableName>("disp_z"));
-      }
-    }
+    if (_displacements.size() < 2)
+      paramError(
+          "displacements",
+          "DomainIntegral error: The size of the displacements vector should at least be 2.");
 
     if (integral_moose_enums[i] != "JIntegral" && integral_moose_enums[i] != "CIntegral" &&
         integral_moose_enums[i] != "KFromJIntegral")
@@ -264,7 +234,7 @@ DomainIntegralAction::DomainIntegralAction(const InputParameters & params)
   if (isParamValid("temperature"))
     _temp = getParam<VariableName>("temperature");
 
-  if (_temp != "" && !isParamValid("eigenstrain_names") && !_solid_mechanics)
+  if (_temp != "" && !isParamValid("eigenstrain_names"))
     paramError(
         "eigenstrain_names",
         "DomainIntegral error: must provide `eigenstrain_names` when temperature is coupled.");
@@ -661,9 +631,6 @@ DomainIntegralAction::act()
       std::string vpp_base_name;
       std::string vpp_type_name("InteractionIntegral");
 
-      if (_solid_mechanics)
-        vpp_type_name = "InteractionIntegralSM";
-
       InputParameters params = _factory.getValidParams(vpp_type_name);
       params.set<UserObjectName>("crack_front_definition") = uo_name;
       params.set<bool>("use_displaced_mesh") = _use_displaced_mesh;
@@ -795,7 +762,7 @@ DomainIntegralAction::act()
 
   else if (_current_task == "add_material")
   {
-    if (_temp != "" && !_solid_mechanics)
+    if (_temp != "")
     {
       std::string mater_name;
       const std::string mater_type_name("ThermalFractureIntegral");
@@ -820,8 +787,7 @@ DomainIntegralAction::act()
       if (ime == "CIntegral")
         have_c_integral = true;
     }
-
-    if (have_j_integral && !_solid_mechanics)
+    if (have_j_integral)
     {
       std::string mater_name;
       const std::string mater_type_name("StrainEnergyDensity");
